@@ -1,12 +1,19 @@
 \documentclass[shortabstract, manyadvisors, english, mgr]{iithesis}
 \usepackage[utf8]{inputenc}
 
-\englishtitle{Implementation of the Terminal Subsystem and Job Control \fmlinebreak
-             in the Mimiker Operating System}
-\polishtitle{Implementacja podsystemu terminali i kontroli zadań \fmlinebreak
-             w systemie operacyjnym Mimiker}
-\englishabstract{English abstract}
-\polishabstract{Polish Abstract}
+\englishtitle{Implementation of the Terminal Subsystem \\ and Job Control \\
+  in the Mimiker Operating System}
+\polishtitle{Implementacja podsystemu terminali i kontroli zadań \\
+  w systemie operacyjnym Mimiker}
+
+\englishabstract{
+  In the Mimiker Operating System, a user communicates with the system by means
+  of a serial character device, such as a UART. All user processes are spawned
+  using a shell. Job control allow related processes to be grouped into jobs
+  and managed as a single unit. The terminal subsystem is an integral part of
+  job control, as it reacts to certain 
+           }
+           \polishabstract{Polish Abstract}
 \author{Jakub Piecuch}
 \advisor{Krystian Bacławski \fmlinebreak Piotr Witkowski}
 
@@ -19,11 +26,103 @@
 \begin{document}
 
 \chapter{Introduction}
-\label{chapter:1}
-foobar
 
-\begin{thebibliography}{99}
+\section{What is a terminal?}
 
-\end{thebibliography}
+\subsection{Early-day terminals}
+
+In the early days of computing, a computer had a single operator. Users would
+submit their programs to the operator, usually on punched cards. When the user's
+turn came, the operator would load the program into the machine, and collect the
+output of the program in the form of punched cards. The whole process usually
+took hours. If the program contained an error, the user would know about it no
+sooner than when the operator loads it into the machine. Clearly, a more
+interactive way of submitting programs for execution was needed.
+
+Time-sharing systems were the solution to this problem. A time-sharing system
+allows users to interact with the machine using a terminal. It gives the user an
+illusion of exclusive posession of the machine's resources. In reality, the
+operating system provides a fraction of the machine's computing resources to
+each user. Multics\cite{multics} is an early example of a time-sharing operating
+system.
+
+In general, a terminal device is any device that allows its user to interact
+with a computing system, such as a mainframe. It allows the user to input
+commands, data, or even whole programs, and to examine the system's output.
+A terminal could communicate with the system remotely, or be directly attached
+to it.
+
+In the beginning, terminals were electromechanical teletypewriters
+(teletypes, or TTYs for short), initially used in telegraphy. A teletype
+sends data typed on the keyboard to the computer, and prints the response.
+
+In the 1970, video terminals came into widespread use. A video terminal displays
+output on a screen instead of printing it. Most models provide a set of special
+\textit{escape codes}: sequences of characters that, when sent to the terminal,
+cause some action, e.g. clearing the screen. One of the most common features is
+a cursor that can be controlled using escape codes. This made tasks such as
+editing text much more enjoyable. The DEC VT100 series of video terminals was
+extremely successful, and is the basis of a de facto standard for terminal
+escape codes.
+
+\subsection{Terminals in a modern context}
+
+Nowadays, most people use their computer via a graphical user interface, or GUI.
+There is no dedicated device that handles interaction between the system and the
+user: input can be provided and output can be displayed by multiple devices. For
+instance, user input can be provided by a combination of a keyboard and mouse,
+and output can be displayed on a pair of monitors. Consequently, input and
+output handling in GUI programs is considerably more complex compared to
+programs written for character-based terminals. In addition, some people simply
+prefer to use a text-based, non-graphical interface due to its efficiency. For
+these reasons, it is useful to provide a means to run programs that use a
+terminal-based interface. This is accomplished using a \textit{terminal
+emulator}.
+
+A terminal emulator is a GUI program that emulates a terminal device, usually
+one that is compatible with the VT100 series of video terminals. The display of
+the emulated terminal is presented in the emulator's GUI window. The emulator
+translates the user's keystrokes into characters and feeds them as input to the
+application running inside the emulator. Output from the application is
+displayed in the GUI window in the same way it would be displayed on a real
+video terminal's screen. \texttt{xterm} is an example of a terminal emulator.
+
+Another area where terminal-based interfaces are still used is communication
+over limited bandwidth connections, such as a Universal Asynchronous
+Receiver/Transmitter (UART). Many development boards use a serial connection
+as the primary way of communication with the user.
+
+To summarize, even though 1970s-style video terminals are no longer used,
+character-based computer interfaces that are compatible with those terminals
+remain an important part, or even the basis of interaction between a user and a
+computer system.
+
+\section{Job Control}
+
+The primary way of controlling a computer over a terminal connection is using a
+\textit{shell}. A shell is a program that executes commands typed by the user.
+The purpose of most commands is to run a specified program with a given set of
+arguments. For example, the command \texttt{ls -l} instructs the shell to find a
+program named \texttt{ls} and run it with a single argument \texttt{-l}.
+The executed program will then run to completion. It may accept further input
+from the user and write output. The shell waits for the program to finish, after
+which it is ready to accept more commands from the user.
+
+This example presented a very simple use case.
+The user may want to execute \textit{jobs} that consist of a pipeline of
+programs, with programs in the middle of the pipeline accepting input from the
+previous one and feeding output to the next one. Such jobs may run for a long
+time, so the user should be able to run any job in the background, without
+making the shell wait for it to finish.
+
+\textit{Job control} is a general feature of the system that allows the user to
+control running jobs. A job may be suspended and resumed, terminated, a
+background job may be brought into the foreground and vice versa. Job control
+usually requires support from the operating system, and it's up to the shell to
+group related programs into jobs.
+
+
+\bibliography{bibliography}
+\bibliographystyle{plain}
 \end{document}
 
