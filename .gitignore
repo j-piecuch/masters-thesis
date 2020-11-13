@@ -4,3 +4,8 @@
 *.toc
 *.fdb_latexmk
 *.fls
+*.blg
+*.bbl
+*.synctex.gz
+_region_.tex
+auto/*
