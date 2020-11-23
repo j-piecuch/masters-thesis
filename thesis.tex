@@ -27,6 +27,10 @@
 
 \chapter{Introduction}
 
+XXX nie jestem jeszcze pewien jak powinno wyglądać wprowadzenie. Zabiorę się za
+nie jako ostatnie. To co jest teraz napisane prawdopodobnie wyrzucę, ale
+zostawiam do wglądu.
+
 \section{What is a terminal?}
 
 \subsection{Early-day terminals}
@@ -121,6 +125,268 @@ background job may be brought into the foreground and vice versa. Job control
 usually requires support from the operating system, and it's up to the shell to
 group related programs into jobs.
 
+\chapter{POSIX Terminals and Job Control}
+% \section{What is POSIX?}
+POSIX\cite{posix} is a set of standards specifying an operating system
+interface. Its primary goal is to make it possible to write portable
+applications that work across different operating systems, although the
+application usually needs to be compiled for each operating system separately.
+
+Among other things, it defines an Application Programming Interface (API) for
+programs written in the C programming language that allows them to interact with
+the system and use its services. Every POSIX-compliant operating system must
+provide an implementation of this API.
+
+The Mimiker operating system implements the POSIX API, but the implementation is
+far from complete. This allows us to use existing programs using the POSIX API
+like shells, command line utilities and text editors.
+
+\section{POSIX Job Control}
+
+\subsection{Jobs}
+A job consists of one or more processes. The processes are usually connected in
+a pipeline, with each one accepting input from the previous one in the chain,
+and feeding output to the next one.
+
+Jobs are a purely a shell concept: they are implemented entirely in the shell,
+and the operating system has no knowledge of them. However, there is a close
+correspondence between shell jobs and process groups, which are implemented by
+the operating system. The shell puts jobs in their own process groups.
+\subsection{Process groups}
+Process groups are central to job control. They relate processes performing a
+common task, such as a shell job. Process groups are identified by their
+\textit{process group ID}, or \textit{PGID} for short.
+
+Every process belongs to some process group. When a new process is created using
+\texttt{fork()}\cite{fork}, it runs in the process group of its parent.
+
+A process can change its own process group, or that of one of its children. This
+is done using the \texttt{setpgid()}\cite{setpgid} function. It is used by the shell to set
+the process group of all the processes in a job.
+
+TODO orphaned process groups
+\subsection{Sessions}
+The concept of a session is fairly intuitive.
+A new session starts when a user logs into the system. Initially, the user's
+shell is the only process in the session. All jobs (and therefore process
+groups) created by the shell belong to the same session. Every process group
+must belong to exactly one session. Session are collections of process groups,
+much in the same way as process groups are collections of processes.
+
+Processes are not confined to their session: they can separate from it by
+creating their own session using the \texttt{setsid()} function. It creates a
+new session, initially containing just the calling process. All sessions are
+created in this way. Creating a new session necessarily means also creating a
+new process group: if it didn't, we could have two processes in the same process
+group, but in different sessions.
+
+The process that creates a new session is called the \textit{session leader}.
+Usually, the session leader a is shell, or some other program ``in charge'' of
+running and controlling all other programs in the session. It is supposed to
+be the last process in its session to exit. If a session leader exits while its
+session contains other processes, every process in the session will receive a
+\texttt{SIGHUP} signal, whose default effect is to kill the receiving process.
+Processes can ignore this signal, so it is possible for a session to outlive its
+leader. 
+
+Some programs are supposed to run indefinitely and without user intervention.
+A good example are \textit{daemons}: programs that run in the background, e.g.
+providing services to other programs. A user may launch a daemon process from
+the shell. If the shell process exits, the daemon should continue to run. 
+The daemon can become independent from the shell by creating its own session.
+When the shell exits, the daemon will not be notified in any way.
+Independence from the shell should not be confused with independence from the
+\textit{user}: the user may open a shell in another session and send a signal to
+the daemon process, e.g. \texttt{SIGKILL}.
+
+\section{POSIX Terminals}
+On the surface, a terminal device is no different than a standard characters
+device: a process can open it using \texttt{open()} and then perform input and
+output using \texttt{read()} and \texttt{write()} respectively.
+The terminal interface specified by POSIX is much richer than that. Terminal
+devices play a significant role in job control, and therefore are connected to
+the concepts of process groups and sessions. 
+
+\subsection{Controlling terminals}
+A terminal device may be the controlling terminal of a session. A session may
+have at most one controlling terminal, and a terminal device may be the controlling
+terminal of at most one session. A process can always access its controlling
+terminal (if it has one) by opening the \texttt{/dev/tty} device file.
+
+When a session is created, it has no controlling terminal. The session leader is
+responsible for setting and changing the controlling terminal device, although
+the way in which this is done is not specified in the standard.
+
+When the leader of a session terminates, the controlling terminal (if any) is
+dissociated from the session. Any processes left in the session may have their
+access to the controlling terminal revoked. If a controlling terminal device
+disappears from the system, the leader of the associated session is sent a
+\texttt{SIGHUP} signal.
+
+\subsection{Foreground process groups}
+Access to the controlling terminal by processes can be controlled using
+foreground and background process groups.
+
+At any time, a process group can be designated as the foreground process group
+of its session's controlling terminal. All other process groups in the session
+are background process groups. The foreground process group of a terminal can be
+set using the \texttt{tcsetpgrp()}\cite{tcsetpgrp} function. Any process can set the foreground
+process group of its controlling terminal, although some restrictions apply to
+processes from background process groups. A controlling terminal does not need
+to have a foreground process group at all times.
+
+Processes in the foreground process group are allowed to \texttt{read()} and
+\texttt{write()} to their controlling terminal. When a process in a background
+process group attempts to \texttt{read()} or \texttt{write()} to its controlling
+terminal, every process in its process group is sent a \texttt{SIGTTIN} or
+\texttt{SIGTTOU} signal respectively. The default effect of both signals is to
+stop the target process. In the case of \texttt{write()}, the signal is sent
+only if the \texttt{TOSTOP} terminal flag is set. If it is not set, background
+processes can write to their controlling terminal without restrictions. The
+exact semantics are a bit more nuanced, see \cite{terminal-access}.
+
+When a shell is accepting input from the user, its process is necessarily in the
+foreground process group. When the shell starts a job, the job is usually put in
+the foreground, so that the user can interact with it. The shell waits for the
+foreground job to complete, and then makes its own process group the foreground
+process group, so that it can accept the next command.
+
+The user may make the job run in the background by appending \texttt{\&} to the
+command. In that case, the shell remains in the foreground process group and
+does not wait for the job to complete. As explained earlier, a background job
+will be stopped if it tries to accept input from the user.
+
+A background job can be put in the foreground using the \texttt{fg} command. The
+command simply sets the controlling terminal's foreground process group to the
+process group of the target job, continues the target job if it was stopped, and
+waits for the foreground job's termination.
+
+\subsection{Terminal modes and flags}
+
+Command line applications can be roughly divided into two groups, depending on
+how they process user input:
+\begin{itemize}
+  \item{One line at a time (\textit{line-oriented});}
+  \item{One character at a time (\textit{character-oriented}).}
+\end{itemize}
+
+A shell belongs to the first group. It accepts a whole command at a time. Most
+notably, the user may edit the line before submitting it to the program by
+pressing the return key (labelled ``enter'' on most keyboards).
+
+A text editor belongs to the second group. Each key performs an action within
+the editor, such as moving the cursor or inserting text at the position of the
+cursor.
+
+In serious applications, line-oriented input is usually accomplished using a
+library such as GNU Readline \cite{readline}. However, POSIX mandates that basic
+line-editing functionality is provided by the operating system itself.
+Applications may choose whether they want to use this functionality by choosing
+the \textit{terminal mode}.
+
+Two terminal modes are distinguished: \textit{canonical} and
+\textit{non-canonical} (often called \textit{raw}). Canonical mode provides
+basic line editing:
+\begin{itemize}
+  \item{Characters typed by the user are ``echoed'' to the terminal;}
+  \item{Characters may be erased from the line.}
+\end{itemize}
+It also causes certain actions to be taken in response to special
+\textit{control characters} being received.
+
+Character echoing allows the user to see the contents of the line they are
+typing. This is necessary for the user to be able to spot mistakes in their
+input. It is sometimes useful to turn off character echoing, e.g. when the user
+is typing their password.
+
+Characters can be erased from the line by sending certain control characters.
+For instance, the \texttt{VERASE} character erases the character at the end of
+the line, and the \texttt{VKILL} character causes the whole line to be erased.
+
+Raw mode does not perform any processing on characters received from the device.
+It is up to the application to perform tasks like echoing or erasing characters.
+This is exactly what libraries such as GNU Readline do.
+
+\subsubsection{The \texttt{termios} structure}
+
+For each terminal device, all of its settings, including the terminal mode, are
+stored in a \texttt{termios} structure associated with that terminal.
+Application code may examine and modify the contents of this structure using the
+\texttt{tcgetattr()}\cite{tcgetattr} and \texttt{tcsetattr()}\cite{tcsetattr} functions respectively.
+
+The \texttt{termios} structure must contain the following fields:
+\begin{itemize}
+\item \texttt{c\_iflag}: contains bit fields that control basic
+  terminal input handling. Some notable bit fields are:
+  \begin{itemize}
+  \item \texttt{ICRNL}: map the \textit{carriage return} (CR) character to the
+    \textit{new line} (NL) character on input.
+  \item \texttt{BRKINT}: send a \texttt{SIGINT} signal to the foreground process
+    group upon detecting a break condition.
+  \item \texttt{IGNBRK}: ignore hardware break conditions.
+  \item \texttt{INPCK}: enable input parity checking.
+  \item \texttt{IGNPAR}: ignore characters with parity errors.
+  \end{itemize}
+\item \texttt{c\_oflag}: contains bit fields that control terminal
+  output processing. Some notable bit fields are:
+  \begin{itemize}
+  \item \texttt{OPOST}: enable output processing.
+  \item \texttt{ONLCR}: map NL to CR-NL sequence on output.  
+  \item \texttt{OCRNL}: map CR to NL on output.
+  \item \texttt{ONOCR}: do not output CR characters if the cursor is at column
+    0.
+  \end{itemize}
+\item \texttt{c\_cflag}: contains bit fields that control terminal
+  hardware parameters. Some notable bit fields are:
+  \begin{itemize}
+  \item \texttt{CREAD}: enable hardware receiver.
+  \item \texttt{CSIZE}: number of bits transmitted or received per byte (from 5
+    to 8).
+  \end{itemize}
+\item \texttt{c\_lflag}: contains bit fields that control various additional
+  functions. Some notable bit fields are:
+  \begin{itemize}
+  \item \texttt{ECHO}: enable character echoing. This flag is cleared when the
+    user is typing their password.
+  
+  \item \texttt{ICANON}: enable canonical mode.
+  \item \texttt{ISIG}: send signals in response to certain control characters.
+  \item \texttt{TOSTOP}: send \texttt{SIGTTOU} if a background process tries to
+    write to the terminal.
+  \end{itemize}
+\item \texttt{c\_cc}: array defining control character codes. A control
+  character can be disabled by setting its code to \texttt{\_POSIX\_VDISABLE}.
+  Important control characters include:
+  \begin{itemize}
+  \item \texttt{VERASE}: erase the character at the end of the line.
+  \item \texttt{VKILL}: erase the whole line.
+  \item \texttt{VEOF}: marks end of user input.
+  \item \texttt{VINTR}: if the \texttt{ISIG} flag is set, send \texttt{SIGINT}
+    to the foreground process group. 
+  \item \texttt{VSUSP}: if the \texttt{ISIG} flag is set, send \texttt{SIGTSTP}
+    (terminal stop signal) to the foreground process group.
+  \end{itemize}
+\end{itemize}
+For the full specification of the \texttt{termios} structure, see
+\cite{termios}.
+
+\chapter{Implementation of POSIX Terminals and Job Control in the Mimiker
+  Operating System}
+\section{Job Control}
+\subsection{Jobs}
+\subsection{Process groups}
+\subsection{Sessions}
+\section{Terminals}
+\subsection{Creating a terminal device}
+\subsection{Terminal input and output}
+\subsection{Controlling terminals}
+\subsection{Foreground process groups}
+\chapter{Implementation Challenges}
+\section{Process control}
+\subsection{Stopping and resuming processes with signals}
+\subsection{Interruptible sleep and stop signals}
+\section{Locking}
+\chapter{Conclusion}
 
 \bibliography{bibliography}
 \bibliographystyle{plain}
