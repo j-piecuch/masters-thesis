@@ -1,5 +1,6 @@
 \documentclass[shortabstract, manyadvisors, english, mgr]{iithesis}
 \usepackage[utf8]{inputenc}
+\usepackage{amsthm, listings, epigraph, xcolor, graphicx, xurl}
 
 \englishtitle{Implementation of the Terminal Subsystem \\ and Job Control \\
   in the Mimiker Operating System}
@@ -13,9 +14,45 @@
 
 % \date{} % Data zlozenia pracy
 
-\usepackage{listings}
-
 \transcriptnum{281940}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  numberstyle=\footnotesize,
+  numbers=left,
+  frame=single,
+  extendedchars=true,
+}
+
+%%% Kolory do lstlistings
+\definecolor{codegreen}{rgb}{0.1,0.35,0.2}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolor}{rgb}{0.9764705882352941,0.9607843137254902,0.8431372549019608}
+\definecolor{stringcolor}{rgb}{0.4745098039215686,0.4549019607843137,0.054901960784313725}
+\definecolor{commentcolor}{rgb}{0.6588235294117647,0.6,0.5176470588235295}
+\definecolor{keywordcolor}{rgb}{0.61,0,0.02}
+
+\lstdefinestyle{mylststyle}{
+  backgroundcolor=\color{backcolor},
+  commentstyle=\color{commentcolor},
+  keywordstyle=\color{keywordcolor},%\color{codepurple},
+  numberstyle=\tiny\color{codegray},
+  stringstyle=\color{stringcolor},
+  basicstyle=\ttfamily\footnotesize,
+  breakatwhitespace=false,
+  breaklines=true,
+  captionpos=b,
+  keepspaces=true,
+  numbers=none,
+  prebreak=\raisebox{0ex}[0ex][0ex]{\ensuremath{\hookleftarrow}},
+  numbersep=5pt,
+  showspaces=false,
+  showstringspaces=false,
+  showtabs=false,
+  tabsize=2
+}
+\lstset{style=mylststyle}
 
 \begin{document}
 
@@ -181,12 +218,12 @@ be the last process in its session to exit. If a session leader exits while its
 session contains other processes, every process in the session will receive a
 \texttt{SIGHUP} signal, whose default effect is to kill the receiving process.
 Processes can ignore this signal, so it is possible for a session to outlive its
-leader. 
+leader.
 
 Some programs are supposed to run indefinitely and without user intervention.
 A good example are \textit{daemons}: programs that run in the background, e.g.
 providing services to other programs. A user may launch a daemon process from
-the shell. If the shell process exits, the daemon should continue to run. 
+the shell. If the shell process exits, the daemon should continue to run.
 The daemon can become independent from the shell by creating its own session.
 When the shell exits, the daemon will not be notified in any way.
 Independence from the shell should not be confused with independence from the
@@ -199,7 +236,7 @@ device: a process can open it using \texttt{open()} and then perform input and
 output using \texttt{read()} and \texttt{write()} respectively.
 The terminal interface specified by POSIX is much richer than that. Terminal
 devices play a significant role in job control, and therefore are connected to
-the concepts of process groups and sessions. 
+the concepts of process groups and sessions.
 
 \subsection{Controlling terminals}
 A terminal device may be the controlling terminal of a session. A session may
@@ -325,7 +362,7 @@ The \texttt{termios} structure must contain the following fields:
   output processing. Some notable bit fields are:
   \begin{itemize}
   \item \texttt{OPOST}: enable output processing.
-  \item \texttt{ONLCR}: map NL to CR-NL sequence on output.  
+  \item \texttt{ONLCR}: map NL to CR-NL sequence on output.
   \item \texttt{OCRNL}: map CR to NL on output.
   \item \texttt{ONOCR}: do not output CR characters if the cursor is at column
     0.
@@ -342,7 +379,7 @@ The \texttt{termios} structure must contain the following fields:
   \begin{itemize}
   \item \texttt{ECHO}: enable character echoing. This flag is cleared when the
     user is typing their password.
-  
+
   \item \texttt{ICANON}: enable canonical mode.
   \item \texttt{ISIG}: send signals in response to certain control characters.
   \item \texttt{TOSTOP}: send \texttt{SIGTTOU} if a background process tries to
@@ -356,7 +393,7 @@ The \texttt{termios} structure must contain the following fields:
   \item \texttt{VKILL}: erase the whole line.
   \item \texttt{VEOF}: marks end of user input.
   \item \texttt{VINTR}: if the \texttt{ISIG} flag is set, send \texttt{SIGINT}
-    to the foreground process group. 
+    to the foreground process group.
   \item \texttt{VSUSP}: if the \texttt{ISIG} flag is set, send \texttt{SIGTSTP}
     (terminal stop signal) to the foreground process group.
   \end{itemize}
@@ -366,11 +403,201 @@ For the full specification of the \texttt{termios} structure, see
 
 \chapter{Implementation of POSIX Terminals and Job Control in the Mimiker
   Operating System}
+\chaptermark{Implementation}
 \section{Job Control}
 \subsection{Jobs}
+Jobs are purely a userspace concept, and are implemented by the shell. The
+Mimiker operating system uses \texttt{ksh}, which is an existing implementation
+of a POSIX compatible shell.
 \subsection{Process groups}
+A process group is represented in the kernel as a structure of type \texttt{pgrp\_t}.
+\begin{lstlisting}[language=C,
+caption={\texttt{include/sys/proc.h}: definition of \texttt{pgrp\_t}.}]
+typedef struct pgrp {
+  mtx_t pg_lock;
+  TAILQ_ENTRY(pgrp) pg_hash;
+  TAILQ_HEAD(, proc) pg_members;
+  session_t *pg_session;
+  int pg_jobc;
+  pgid_t pg_id;
+} pgrp_t;
+\end{lstlisting}
+
+The \texttt{pg\_lock} mutex synchronizes concurrent accesses to
+\texttt{pg\_members}. \texttt{pg\_hash} is used to link the structure into the
+global hash table mapping process group IDs to process group structures.
+\texttt{pg\_members} is a list of processes belonging to this process group.
+\texttt{pg\_session} points to the session that this process group belongs to.
+\texttt{pg\_jobc} is a counter used to detect orphaned process groups.
+\texttt{pg\_id} holds the process group ID.
+
+\subsubsection{Orphaned process groups}
+
+Let us say that a process \textit{qualifies its process group for job control}
+when its parent process is in a different process group, but in the same
+session. According to this notion, a process group is orphaned when it has no
+processes that qualify it for job control.
+
+The \texttt{pg\_jobc} field keeps track of the number of processes that qualify
+the process group for job control. When it drops to 0, the process group becomes
+orphaned, which results in \texttt{SIGHUP} and \texttt{SIGCONT} being sent to
+every stopped process in the group.
+
+The field's value requires adjustment whenever a process from the group or its
+parent changes process groups. The \texttt{pgrp\_jobc\_enter()} and
+\texttt{pgrp\_jobc\_leave()} functions perform the necessary adjustments when a
+process enters or leaves a process group. When \texttt{pgrp\_jobc\_leave()}
+notices a process group's \texttt{pg\_jobc} drop to 0, it orphans the process
+group, sending the necessary signals.
+
+\subsubsection{Process group lifecycle}
+
+A new process group may be created only in \texttt{sys\_setpgid()}, which is the
+kernel's implementation of the POSIX \texttt{setpgid()} function. Processes may
+enter and leave the process group. When a process terminates and becomes a
+zombie process, it remains on its process group's \texttt{pg\_members} list.
+When a process is reaped, it is removed from the list.
+
+Once the list is empty, the process group's lifetime ends. During deallocation,
+a check is performed to see if the controlling terminal's foreground process
+group is equal to the group being deallocated, in order to prevent a dangling
+reference. If it is, the foreground process group is set to \texttt{NULL}.
+
+TODO maybe some code walkthrough, e.g. \texttt{setpgid()}?
+
 \subsection{Sessions}
+
+The \texttt{session\_t} structure describes a session in the kernel.
+
+\noindent
+\begin{minipage}{\linewidth}
+\begin{lstlisting}[language=C,
+caption={\texttt{include/sys/proc.h}: definition of \texttt{session\_t}.}]
+typedef struct session {
+  TAILQ_ENTRY(session) s_hash;
+  proc_t *s_leader;
+  int s_count;
+  sid_t s_sid;
+  tty_t *s_tty;
+} session_t;
+\end{lstlisting}
+\end{minipage}
+The \texttt{s\_hash} field links the structure into the global hash table
+mapping session IDs to session structures. \texttt{s\_leader} points to the
+session leader if one exists. \texttt{s\_count} is the number of process groups
+in the session. \texttt{s\_sid} holds the session ID. \texttt{s\_tty} points to
+the session's controlling terminal, if any.
+
 \section{Terminals}
+
+The \texttt{tty\_t} structure encapsulates state associated with a single
+terminal device.
+
+\noindent
+\begin{minipage}{\linewidth}
+\begin{lstlisting}[language=c,
+caption={\texttt{include/sys/tty.h}: definition of \texttt{tty\_t}.}]
+typedef enum {
+  tf_wait_out_lowat = 0x1,
+  tf_wait_drain_out = 0x2,
+  tf_out_busy = 0x4,
+} tty_flags_t;
+
+typedef struct tty {
+  mtx_t t_lock;
+  tty_flags_t t_flags;
+  ringbuf_t t_inq;
+  condvar_t t_incv;
+  ringbuf_t t_outq;
+  condvar_t t_outcv;
+  linebuf_t t_line;
+  size_t t_column;
+  size_t t_rocol, t_rocount;
+  condvar_t t_serialize_cv;
+  condvar_t t_background_cv;
+  ttyops_t t_ops;
+  struct termios t_termios;
+  pgrp_t *t_pgrp;
+  session_t *t_session;
+  vnode_t *t_vnode;
+  void *t_data;
+} tty_t;
+\end{lstlisting}
+\end{minipage}
+The \texttt{t\_lock} mutex synchronizes access to the structure.
+\texttt{t\_flags} may contain the following flags:
+\begin{itemize}
+\item \texttt{TF\_WAIT\_OUT\_LOWAT}: a thread is waiting for space to become
+  available in the output queue;
+\item \texttt{TF\_WAIT\_DRAIN\_OUT}: a thread is waiting for the output queue to
+  become empty;
+\item \texttt{TF\_OUT\_BUSY}: a thread is currently writing to this terminal.
+  This flag is used to serialize \texttt{write()} calls on a terminal device.
+\end{itemize}
+
+\texttt{t\_inq} is a ring buffer storing input coming from the terminal device.
+\texttt{read()} calls on the terminal device file receive characters from this
+buffer. \texttt{t\_incv} is a condition variable used to wait for input to
+become available in \texttt{t\_inq}.
+
+\texttt{t\_outq} is a ring buffer storing output from processes. The terminal
+device driver reads characters from this buffer and takes care of transmitting
+them. \textt{t\_outcv} is a condition variable used to wait for space to become
+available in the output queue or for the queue to become empty.
+
+\texttt{t\_line} stores the contents of the line the user is typing in canonical
+mode. Its contents can be edited by the user. Once the user submits the line,
+its contents are copied into \texttt{t\_inq}. The contents if \texttt{t\_inq}
+cannot be changed. In raw mode, \texttt{t\_line} is not used.
+
+\texttt{t\_column} keeps track of the position of the terminal cursor. It is
+needed to support the \texttt{ONOCR} terminal flag, which forbids sending the
+carriage return character when the cursor is at column 0.
+
+The \texttt{t\_rocol} and \texttt{t\_rocount} fields are needed due to the fact
+that the echoed line can be interleaved with output from processes, and we only
+want to let the user erase the characters they typed, not ones output by
+processes. The two fields keep track of the longest prefix of the line that is
+not interrupted by output from processes.
+
+The \texttt{t\_serialize\_cv} condition variable is used by processes calling
+\texttt{write()} to wait for their turn to access the terminal.
+
+\texttt{t\_background\_cv} is a condition variable used by processes in background
+process groups to wait until they are placed in the foreground.
+
+\texttt{t\_ops} is a structure containing implementations of terminal device
+driver operations. Currently, only one operation is provided by device drivers:
+
+\noindent
+\begin{minipage}{\linewidth}
+\begin{lstlisting}[language=c,
+caption={\texttt{include/sys/tty.h}: definition of \texttt{ttyops\_t}.}]
+typedef void (*t_notify_out_t)(struct tty *);
+
+typedef struct {
+  t_notify_out_t t_notify_out;
+} ttyops_t;
+\end{lstlisting}
+\end{minipage}
+The \texttt{t\_notify\_out} operation notifies the device driver that new data
+has appeared in the terminal structure's output buffer. The driver should ensure
+that data from the buffer is written out to the device as soon as possible.
+
+\texttt{t\_termios} stores the terminal configuration described in the previous
+chapter.
+
+\texttt{t\_pgrp} points to the foreground process group, if any.
+
+\texttt{t\_session} points to the session controlled by this terminal.
+
+\texttt{t\_vnode} points to the filesystem node representing the terminal
+device. It is used to implement the \texttt{/dev/tty} device file, which refers
+different devices for processes in different sessions.
+
+\texttt{t\_data} is an opaque pointer for the device driver to store its private
+data.
+
 \subsection{Creating a terminal device}
 \subsection{Terminal input and output}
 \subsection{Controlling terminals}
@@ -385,4 +612,3 @@ For the full specification of the \texttt{termios} structure, see
 \bibliography{bibliography}
 \bibliographystyle{plain}
 \end{document}
-
