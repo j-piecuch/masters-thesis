@@ -607,7 +607,113 @@ different devices for processes in different sessions.
 data.
 
 \subsection{Creating a terminal device}
-\subsection{Terminal input and output}
+
+When a serial device driver attaches to a device, it is responsible for creating
+its corresponding terminal device. This involves allocating a new \texttt{tty}
+structure, setting device-specific fields in that structure (e.g.
+\texttt{t\_ops}) and creating a terminal device node in the \texttt{/dev}
+directory of the filesystem.
+
+When creating the file, the driver supplies \texttt{tty\_fileops} as the
+implementation of file operations. This way, \texttt{read()} and
+\texttt{write()} (and other) calls on the file are directed to the TTY
+subsystem, which may in turn call the serial device driver via \texttt{t\_ops}.
+
+In the current implementation, which aims for simplicity, terminal devices live
+forever. Once a terminal file is created, it never goes away.
+
+\subsection{Terminal input}
+
+Processes read data from a terminal by invoking \texttt{read()} on an open
+terminal file descriptor. The terminal subsystem implements this operation in
+the \texttt{tty\_read()} function. As mandated by POSIX, the function first
+checks whether the calling process is in the foreground process of its
+controlling terminal, if it has one. If it is, the process may proceed.
+Otherwise, the process group of the calling process is sent a \texttt{SIGTTIN}
+signal and the process goes to sleep waiting for a change that would allow it to
+proceed.
+
+After passing the check, the process checks whether there are characters
+available in the terminal's input buffer. If it is empty, the process goes to
+sleep on the \texttt{t\_incv} condition variable. The process will be woken up
+once there is data in the buffer.
+
+If the input buffer contains characters, the process copies them into the
+userspace buffer supplied as an argument to \texttt{read()}. In canonical mode,
+care must be taken not to read more than a single line. If a line-terminating
+character is read from the buffer, no further characters are copied, but the
+line-terminating character is (with the exception of the special character
+\texttt{VEOF}).
+
+We have covered how characters find their way from the terminal input buffer to
+the buffer supplied by the reading user process. The question that remains is:
+How are characters written into the input buffer?
+
+A character's journey through the kernel begins with its reception by the
+serial device. An interrupt-driven device (e.g. a UART) signals the reception of
+a character by asserting its interrupt line, which will eventually lead to
+interrupting the CPU. The CPU will then jump to an \textit{interrupt service
+  routine}, or ISR.
+
+The ISR will execute the serial device driver's code that extracts the character
+from the device registers and inserts it into the serial device's
+\textit{receive buffer}. This buffer is different from the associated terminal's
+input buffer. The driver will then wake up a worker thread that copies
+characters from the receive buffer into the terminal's input buffer.
+
+Characters being copied from the receive buffer must be processed in order to
+take appropriate actions in response to certain control characters being
+received. The degree of processing depends on the state of flags in the
+\texttt{termios} structure. For instance, if the \texttt{ISIG} flag is set, the
+characters \texttt{VINTR}, \texttt{VSUSP} and \texttt{VQUIT} respectively cause
+a \texttt{SIGINT}, \texttt{SIGTSTP} or \texttt{SIGQUIT} signal to be sent to the
+foreground process group of the receiving terminal.
+
+The terminal subsystem provides the \texttt{tty\_input()} function for inserting
+characters into the terminal input buffer. The function accepts a character and
+performs processing on it before appending it to the line buffer or the input
+buffer. Its control flow can be summarized by the following pseudocode:
+
+\noindent
+\begin{minipage}{\linewidth}
+\begin{lstlisting}[language=c,
+caption={\texttt{kern/tty.c}: simplified control flow of \texttt{tty\_input()}.}]
+void tty_input(tty_t *tty, uint8_t c) {
+  if (ISIG flag is set) {
+    /* Signal processing */
+    if (c is VINTR or VSUSP or VQUIT) {
+      send the appropriate signal to the foreground process group;
+      return;
+    }
+  }
+
+  if (ICANON flag is set) {
+    /* Line editing */
+    if (c is VERASE or VKILL) {
+      erase the approriate characters from the line;
+      return;
+    }
+
+    insert c into the line buffer;
+    
+    if (c is a line terminator) {
+      copy the line buffer to the input buffer; 
+    }
+  } else {
+    insert c into the input buffer;
+  }
+
+  if (ECHO flag is set) {
+    echo c;
+  }
+}
+\end{lstlisting}
+\end{minipage}
+
+The \texttt{tty\_input()} function cannot be called from an ISR, as the function
+uses blocking synchronization primitives, such as mutexes. This is why a worker
+thread is used instead of calling \texttt{tty\_input()} directly from an ISR.
+
 \subsection{Controlling terminals}
 \subsection{Foreground process groups}
 \chapter{Implementation Challenges}
