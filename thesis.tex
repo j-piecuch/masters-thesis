@@ -506,9 +506,9 @@ terminal device.
 \begin{lstlisting}[language=c,
 caption={\texttt{include/sys/tty.h}: definition of \texttt{tty\_t}.}]
 typedef enum {
-  tf_wait_out_lowat = 0x1,
-  tf_wait_drain_out = 0x2,
-  tf_out_busy = 0x4,
+  TF_WAIT_OUT_LOWAT = 0x1,
+  TF_WAIT_DRAIN_OUT = 0x2,
+  TF_OUT_BUSY = 0x4,
 } tty_flags_t;
 
 typedef struct tty {
@@ -626,12 +626,13 @@ forever. Once a terminal file is created, it never goes away.
 
 Processes read data from a terminal by invoking \texttt{read()} on an open
 terminal file descriptor. The terminal subsystem implements this operation in
-the \texttt{tty\_read()} function. As mandated by POSIX, the function first
-checks whether the calling process is in the foreground process of its
-controlling terminal, if it has one. If it is, the process may proceed.
-Otherwise, the process group of the calling process is sent a \texttt{SIGTTIN}
-signal and the process goes to sleep waiting for a change that would allow it to
-proceed.
+the \texttt{tty\_read()} function.
+
+As mandated by POSIX, the function first checks whether the calling process is
+in the foreground process of its controlling terminal, if it has one. If it is,
+the process may proceed. Otherwise, the process group of the calling process is
+sent a \texttt{SIGTTIN} signal and the process goes to sleep waiting for a
+change that would allow it to proceed.
 
 After passing the check, the process checks whether there are characters
 available in the terminal's input buffer. If it is empty, the process goes to
@@ -713,6 +714,56 @@ void tty_input(tty_t *tty, uint8_t c) {
 The \texttt{tty\_input()} function cannot be called from an ISR, as the function
 uses blocking synchronization primitives, such as mutexes. This is why a worker
 thread is used instead of calling \texttt{tty\_input()} directly from an ISR.
+
+\subsection{Terminal output}
+
+Processes write data to a terminal by invoking \texttt{write()} on an open
+terminal file descriptor. The kernel in turn calls \texttt{tty\_write()} to
+carry out the operation.
+
+If the \texttt{TOSTOP} terminal flag is set, a background check similar to the
+one in \texttt{tty\_read()} is performed, with the difference that the signal
+sent to the offending process group is \texttt{SIGTTOU} instead of
+\texttt{SIGTTIN}.
+
+After passing the check, the calling process writes the data into the terminal's
+output buffer. If at any point the buffer becomes full, the process goes to
+sleep on the \texttt{t\_outcv} condition variable, waiting for the serial device
+driver to make space in the buffer.
+
+After writing data to the output buffer or before going to sleep on
+\texttt{t\_outcv}, the serial device driver is notified of new data. The
+\texttt{tty\_notify\_out()} function calls the \texttt{t\_notify\_out} function
+supplied by the driver. After that point, it is the responsibility of the driver
+to write the characters in \texttt{t\_outq} to the serial device.
+
+Unlike in the case of terminal input, the driver does not need to use an
+intermediate buffer between the terminal's output buffer and the hardware. It
+may simply write all data from the buffer in a single invocation of
+\texttt{t\_notify\_out}. In other words, the driver may output the characters
+\textit{synchronously}. However, that would most likely require busy-waiting for
+the hardware to become ready to accept data, unnecessarily consuming CPU time.
+For this reason, an \textit{asynchronous} approach is taken in the UART driver
+found in the Mimiker kernel.
+
+The driver's implementation of \texttt{t\_notify\_out} copies characters from
+the terminal's output buffer to the \textit{transmit buffer} associated with the
+device. Actual output is performed in the driver's ISR: the hardware signals
+that is ready to accept a character via an interrupt. The ISR then takes one
+character from the transmit buffer and writes it to a hardware register. When
+the transmit buffer runs out of characters, the ISR wakes up a worker thread
+that copies characters from the terminal's output buffer into the transmit
+buffer. The actual implementation doesn't perform output exclusively from the
+ISR, but that is just an optimization.
+
+In the case of asynchronous drivers, the driver is also responsible for waking
+up writers waiting for space in the terminal's output buffer. This is done by
+calling the \texttt{tty\_getc\_done()} function after copying characters from
+the output queue. This function simply checks whether the number of characters
+in the output buffer has fallen below some threshold. If it has, it wakes up all
+waiters waiting on \texttt{t\_outcv}. Similarly to \texttt{tty\_input()}, this
+function cannot be called from an ISR, as it uses blocking synchronization
+primitives.
 
 \subsection{Controlling terminals}
 \subsection{Foreground process groups}
