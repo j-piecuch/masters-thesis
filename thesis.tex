@@ -474,6 +474,7 @@ reference. If it is, the foreground process group is set to \texttt{NULL}.
 TODO maybe some code walkthrough, e.g. \texttt{setpgid()}?
 
 \subsection{Sessions}
+\label{chapter:sessions}
 
 The \texttt{session\_t} structure describes a session in the kernel.
 
@@ -766,6 +767,20 @@ function cannot be called from an ISR, as it uses blocking synchronization
 primitives.
 
 \subsection{Controlling terminals}
+
+As seen in section \ref{chapter:sessions}, the controlling terminal for a
+session is stored in the \texttt{s\_tty} field of \texttt{session\_t}. When a
+new session is created, its \texttt{s\_tty} field is set to \texttt{NULL}.
+
+A terminal becomes associated with a session automatically when a session leader
+opens a terminal device file. The association happens only when the session
+doesn't already have a controlling terminal, and the terminal being opened isn't
+associated with any session.
+
+When the session leader process exits, the session loses its controlling
+terminal. This is the only way a terminal may become dissociated from its
+session.
+
 \subsection{Foreground process groups}
 \chapter{Implementation Challenges}
 \section{Process control}
