@@ -523,7 +523,6 @@ typedef struct tty {
   size_t t_column;
   size_t t_rocol, t_rocount;
   condvar_t t_serialize_cv;
-  condvar_t t_background_cv;
   ttyops_t t_ops;
   struct termios t_termios;
   pgrp_t *t_pgrp;
@@ -571,9 +570,6 @@ not interrupted by output from processes.
 
 The \texttt{t\_serialize\_cv} condition variable is used by processes calling
 \texttt{write()} to wait for their turn to access the terminal.
-
-\texttt{t\_background\_cv} is a condition variable used by processes in background
-process groups to wait until they are placed in the foreground.
 
 \texttt{t\_ops} is a structure containing implementations of terminal device
 driver operations. Currently, only one operation is provided by device drivers:
@@ -632,8 +628,9 @@ the \texttt{tty\_read()} function.
 As mandated by POSIX, the function first checks whether the calling process is
 in the foreground process of its controlling terminal, if it has one. If it is,
 the process may proceed. Otherwise, the process group of the calling process is
-sent a \texttt{SIGTTIN} signal and the process goes to sleep waiting for a
-change that would allow it to proceed.
+sent a \texttt{SIGTTIN} signal, which will stop the process until it is
+resumed by a \texttt{SIGCONT} signal, most likely sent by the shell. The read
+will then be attempted again.
 
 After passing the check, the process checks whether there are characters
 available in the terminal's input buffer. If it is empty, the process goes to
