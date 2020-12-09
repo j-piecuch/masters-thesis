@@ -1,6 +1,7 @@
+\RequirePackage{xcolor}
 \documentclass[shortabstract, manyadvisors, english, mgr]{iithesis}
 \usepackage[utf8]{inputenc}
-\usepackage{amsthm, listings, epigraph, xcolor, graphicx, xurl}
+\usepackage{minted, epigraph, xurl}
 
 \englishtitle{Implementation of the Terminal Subsystem \\ and Job Control \\
   in the Mimiker Operating System}
@@ -16,43 +17,7 @@
 
 \transcriptnum{281940}
 
-\lstset{
-  basicstyle=\ttfamily\small,
-  numberstyle=\footnotesize,
-  numbers=left,
-  frame=single,
-  extendedchars=true,
-}
-
-%%% Kolory do lstlistings
-\definecolor{codegreen}{rgb}{0.1,0.35,0.2}
-\definecolor{codegray}{rgb}{0.5,0.5,0.5}
-\definecolor{codepurple}{rgb}{0.58,0,0.82}
-\definecolor{backcolor}{rgb}{0.9764705882352941,0.9607843137254902,0.8431372549019608}
-\definecolor{stringcolor}{rgb}{0.4745098039215686,0.4549019607843137,0.054901960784313725}
-\definecolor{commentcolor}{rgb}{0.6588235294117647,0.6,0.5176470588235295}
-\definecolor{keywordcolor}{rgb}{0.61,0,0.02}
-
-\lstdefinestyle{mylststyle}{
-  backgroundcolor=\color{backcolor},
-  commentstyle=\color{commentcolor},
-  keywordstyle=\color{keywordcolor},%\color{codepurple},
-  numberstyle=\tiny\color{codegray},
-  stringstyle=\color{stringcolor},
-  basicstyle=\ttfamily\footnotesize,
-  breakatwhitespace=false,
-  breaklines=true,
-  captionpos=b,
-  keepspaces=true,
-  numbers=none,
-  prebreak=\raisebox{0ex}[0ex][0ex]{\ensuremath{\hookleftarrow}},
-  numbersep=5pt,
-  showspaces=false,
-  showstringspaces=false,
-  showtabs=false,
-  tabsize=2
-}
-\lstset{style=mylststyle}
+\setminted[c]{frame=single, baselinestretch=1.1}
 
 \begin{document}
 
@@ -269,10 +234,10 @@ foreground and background process groups.
 At any time, a process group can be designated as the foreground process group
 of its session's controlling terminal. All other process groups in the session
 are background process groups. The foreground process group of a terminal can be
-set using the \texttt{tcsetpgrp()}\cite{tcsetpgrp} function. Any process can set the foreground
-process group of its controlling terminal, although some restrictions apply to
-processes from background process groups. A controlling terminal does not need
-to have a foreground process group at all times.
+set using the \texttt{tcsetpgrp()}\cite{tcsetpgrp} function. Any process can set
+the foreground process group of its controlling terminal, although some
+restrictions apply to processes from background process groups. A controlling
+terminal does not need to have a foreground process group at all times.
 
 Processes in the foreground process group are allowed to \texttt{read()} and
 \texttt{write()} to their controlling terminal. When a process in a background
@@ -412,6 +377,12 @@ For the full specification of the \texttt{termios} structure, see
 \chapter{Implementation of POSIX Terminals and Job Control in the Mimiker
   Operating System}
 \chaptermark{Implementation}
+
+This chapter lays out the implementation of POSIX terminals and job control in
+the Mimiker operating system. The discussion focuses on the kernel, as that is
+where the most work had to be done. The relevant kernel data structures and
+functions are described.
+
 \section{Job Control}
 \subsection{Jobs}
 Jobs are purely a userspace concept, and are implemented by the shell. The
@@ -419,8 +390,8 @@ Mimiker operating system uses \texttt{ksh}, which is an existing implementation
 of a POSIX compatible shell.
 \subsection{Process groups}
 A process group is represented in the kernel as a structure of type \texttt{pgrp\_t}.
-\begin{lstlisting}[language=C,
-caption={\texttt{include/sys/proc.h}: definition of \texttt{pgrp\_t}.}]
+\begin{listing}[H]
+\begin{minted}{c}
 typedef struct pgrp {
   mtx_t pg_lock;
   TAILQ_ENTRY(pgrp) pg_hash;
@@ -429,7 +400,9 @@ typedef struct pgrp {
   int pg_jobc;
   pgid_t pg_id;
 } pgrp_t;
-\end{lstlisting}
+\end{minted}
+\caption{\texttt{include/sys/proc.h}: definition of \texttt{pgrp\_t}.}
+\end{listing}
 
 The \texttt{pg\_lock} mutex synchronizes concurrent accesses to
 \texttt{pg\_members}. \texttt{pg\_hash} is used to link the structure into the
@@ -473,15 +446,12 @@ reference. If it is, the foreground process group is set to \texttt{NULL}.
 
 TODO maybe some code walkthrough, e.g. \texttt{setpgid()}?
 
-\subsection{Sessions}
-\label{chapter:sessions}
+\subsection{Sessions}\label{chapter:sessions}
 
 The \texttt{session\_t} structure describes a session in the kernel.
 
-\noindent
-\begin{minipage}{\linewidth}
-\begin{lstlisting}[language=C,
-caption={\texttt{include/sys/proc.h}: definition of \texttt{session\_t}.}]
+\begin{listing}[H]
+\begin{minted}{c}
 typedef struct session {
   TAILQ_ENTRY(session) s_hash;
   proc_t *s_leader;
@@ -489,8 +459,9 @@ typedef struct session {
   sid_t s_sid;
   tty_t *s_tty;
 } session_t;
-\end{lstlisting}
-\end{minipage}
+\end{minted}
+\caption{\texttt{include/sys/proc.h}: definition of \texttt{session\_t}.}
+\end{listing}
 The \texttt{s\_hash} field links the structure into the global hash table
 mapping session IDs to session structures. \texttt{s\_leader} points to the
 session leader if one exists. \texttt{s\_count} is the number of process groups
@@ -502,10 +473,8 @@ the session's controlling terminal, if any.
 The \texttt{tty\_t} structure encapsulates state associated with a single
 terminal device.
 
-\noindent
-\begin{minipage}{\linewidth}
-\begin{lstlisting}[language=c,
-caption={\texttt{include/sys/tty.h}: definition of \texttt{tty\_t}.}]
+\begin{listing}[H]
+\begin{minted}{c}
 typedef enum {
   TF_WAIT_OUT_LOWAT = 0x1,
   TF_WAIT_DRAIN_OUT = 0x2,
@@ -530,8 +499,9 @@ typedef struct tty {
   vnode_t *t_vnode;
   void *t_data;
 } tty_t;
-\end{lstlisting}
-\end{minipage}
+\end{minted}
+\caption{\texttt{include/sys/tty.h}: definition of \texttt{tty\_t}.}
+\end{listing}
 The \texttt{t\_lock} mutex synchronizes access to the structure.
 \texttt{t\_flags} may contain the following flags:
 \begin{itemize}
@@ -550,7 +520,7 @@ become available in \texttt{t\_inq}.
 
 \texttt{t\_outq} is a ring buffer storing output from processes. The terminal
 device driver reads characters from this buffer and takes care of transmitting
-them. \textt{t\_outcv} is a condition variable used to wait for space to become
+them. \texttt{t\_outcv} is a condition variable used to wait for space to become
 available in the output queue or for the queue to become empty.
 
 \texttt{t\_line} stores the contents of the line the user is typing in canonical
@@ -574,17 +544,16 @@ The \texttt{t\_serialize\_cv} condition variable is used by processes calling
 \texttt{t\_ops} is a structure containing implementations of terminal device
 driver operations. Currently, only one operation is provided by device drivers:
 
-\noindent
-\begin{minipage}{\linewidth}
-\begin{lstlisting}[language=c,
-caption={\texttt{include/sys/tty.h}: definition of \texttt{ttyops\_t}.}]
+\begin{listing}[H]
+\begin{minted}{c}
 typedef void (*t_notify_out_t)(struct tty *);
 
 typedef struct {
   t_notify_out_t t_notify_out;
 } ttyops_t;
-\end{lstlisting}
-\end{minipage}
+\end{minted}
+\caption{\texttt{include/sys/tty.h}: definition of \texttt{ttyops\_t}.}
+\end{listing}
 The \texttt{t\_notify\_out} operation notifies the device driver that new data
 has appeared in the terminal structure's output buffer. The driver should ensure
 that data from the buffer is written out to the device as soon as possible.
@@ -673,10 +642,8 @@ characters into the terminal input buffer. The function accepts a character and
 performs processing on it before appending it to the line buffer or the input
 buffer. Its control flow can be summarized by the following pseudocode:
 
-\noindent
-\begin{minipage}{\linewidth}
-\begin{lstlisting}[language=c,
-caption={\texttt{kern/tty.c}: simplified control flow of \texttt{tty\_input()}.}]
+\begin{listing}[H]
+\begin{minted}{c}
 void tty_input(tty_t *tty, uint8_t c) {
   if (ISIG flag is set) {
     /* Signal processing */
@@ -706,8 +673,9 @@ void tty_input(tty_t *tty, uint8_t c) {
     echo c;
   }
 }
-\end{lstlisting}
-\end{minipage}
+\end{minted}
+\caption{\texttt{kern/tty.c}: simplified control flow of \texttt{tty\_input()}.}
+\end{listing}
 
 The \texttt{tty\_input()} function cannot be called from an ISR, as the function
 uses blocking synchronization primitives, such as mutexes. This is why a worker
