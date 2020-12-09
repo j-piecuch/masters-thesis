@@ -7,5 +7,7 @@
 *.blg
 *.bbl
 *.synctex.gz
+*.pyg
 _region_.tex
 auto/*
+_minted-thesis/*
