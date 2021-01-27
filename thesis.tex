@@ -773,8 +773,98 @@ field is set to \texttt{NULL}. Thus, a terminal does not need to have a
 foreground process group at all times, even if it is associated with a session.
 
 \chapter{Implementation Challenges}
+
+In order to properly implement terminal and job control support in the kernel,
+many seemingly unrelated issues needed to be resolved. Some of them were
+unimplemented features, while others concerned more fundamental design choices
+in the kernel. This chapter describes a number of interesting issues that arose,
+and how they have been resolved.
+
 \section{Process control}
+
+Certain signals used by the terminal subsystem, such as \texttt{SIGTTOU} and
+\texttt{SIGTTIN}, may \textit{stop} the receiving process. A stopped process
+cannot run or respond to signals until it is sent a \texttt{SIGCONT} signal.
+
+There was no prior support for process stopping in the Mimiker kernel. In this
+section, we describe the implementation of this feature and some design
+questions that needed to be answered.
+
 \subsection{Stopping and resuming processes with signals}
+
+There are four signals that may stop the receiving process: \texttt{SIGSTOP},
+\texttt{SIGTTOU}, \texttt{SIGTTIN}, and \texttt{SIGTSTP}. The first one is
+special in that it cannot be ignored or blocked from being delivered: if it is
+sent, it will always stop the target process.
+
+The other three signals are \textit{terminal stop signals}: they are usually
+sent by the terminal system in response to certain events, e.g.\ upon receiving
+the \texttt{VSTOP} control character. They may be ignored and blocked from being
+delivered. A terminal stop signal cannot stop a process that is a member of an
+orphaned process group. The reason for this is that an orphaned process group
+most likely doesn't have a supervising process such as a shell, and therefore it
+is unlikely that a stopped process in such a group would ever be resumed by a
+\texttt{SIGCONT} signal.
+
+In the kernel, stop signals are sent in much the same way as any other signal,
+using the \texttt{sig\_kill()} function. The function inserts the signal into
+the target thread's pending signal set and wakes it up from sleep if it is
+sleeping interruptibly. In addition, it removes any pending \texttt{SIGCONT}
+signals to avoid having contradictory signals pending at the same time.
+
+All threads handle pending signals just before returning to userspace, in the
+\texttt{on\_user\_exc\_leave()} function. The \texttt{sig\_check()} function checks
+for pending signals that have installed handlers. If it finds a special signals
+that doesn't have a handler installed, such as \texttt{SIGKILL} or
+\texttt{SIGSTOP}, it takes the appropriate action. In the case of stop signals,
+it calls \texttt{proc\_stop()}.
+
+\subsubsection{Process stopping}
+
+Stopping a process is not as simple as setting its state to
+\texttt{PS\_STOPPED}. The parent of the stopping process must be notified of a
+child's status change by a \texttt{SIGCHLD} signal. At the end, the thread of
+the stopping process is stopped by settings its state to \texttt{TDS\_STOPPED}
+and calling \texttt{sched\_switch()}, which will perform a context switch to
+another thread.
+
+Due to locking nuances, stopping a thread is a two-step operation. We first set
+the \texttt{TDF\_STOPPING} flag in the thread to signal our intent to stop. We
+then release all locks held and acquire the thread spinlock, which must be the
+only lock held when performing a context switch. The context switch is then
+performed provided the \texttt{TDF\_STOPPING} flag is still set. The code in
+listing shows the exact steps.
+
+\begin{listing}[H]
+\begin{minted}{c}
+void proc_stop() {
+  thread_t *td = thread_self();
+  proc_t *p = td->td_proc;
+
+  assert(mtx_owned(&p->p_lock));
+
+  p->p_state = PS_STOPPED;
+  notify parent of child status change;
+  WITH_SPIN_LOCK (td->td_lock) { td->td_flags |= TDF_STOPPING; }
+  proc_unlock(p);
+  /* We're holding no locks here, so our process can be continued
+   * before we actually stop the thread.
+   * This is why we need the TDF_STOPPING flag. */
+  spin_lock(td->td_lock);
+  if (td->td_flags & TDF_STOPPING) {
+    td->td_flags &= ~TDF_STOPPING;
+    td->td_state = TDS_STOPPED;
+    sched_switch(); /* Releases td_lock. */
+  } else {
+    spin_unlock(td->td_lock);
+  }
+  proc_lock(p);
+  return;
+}
+\end{minted}
+\caption{\texttt{sys/proc.c}: simplified version of \texttt{proc\_stop()}.}
+\end{listing}
+
 \subsection{Interruptible sleep and stop signals}
 \section{Locking}
 \chapter{Conclusion}
