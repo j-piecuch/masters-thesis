@@ -131,10 +131,11 @@ group related programs into jobs.
 
 \chapter{POSIX Terminals and Job Control}
 % \section{What is POSIX?}
-POSIX\cite{posix} is a set of standards specifying an operating system
-interface. Its primary goal is to make it possible to write portable
-applications that work across different operating systems, although the
-application usually needs to be compiled for each operating system separately.
+
+POSIX~\cite{posix} is a set of standards specifying an operating system
+interface. Its primary goal is to make it easy to write portable libraries and
+applications that work across different operating systems, although they usually
+need to be compiled for each operating system separately.
 
 Among other things, it defines an Application Programming Interface (API) for
 programs written in the C programming language that allows them to interact with
@@ -152,10 +153,11 @@ A job consists of one or more processes. The processes are usually connected in
 a pipeline, with each one accepting input from the previous one in the chain,
 and feeding output to the next one.
 
-Jobs are a purely a shell concept: they are implemented entirely in the shell,
+Jobs are purely a shell concept: they are implemented entirely in the shell,
 and the operating system has no knowledge of them. However, there is a close
 correspondence between shell jobs and process groups, which are implemented by
-the operating system. The shell puts jobs in their own process groups.
+the operating system. The shell puts different jobs in different process groups.
+
 \subsection{Process groups}
 Process groups are central to job control. They relate processes performing a
 common task, such as a shell job. Process groups are identified by their
