@@ -747,6 +747,31 @@ terminal. This is the only way a terminal may become dissociated from its
 session.
 
 \subsection{Foreground process groups}
+
+The \texttt{t\_pgrp} field in the \texttt{tty\_t} structure points to the
+foreground process group associated with the terminal. Only controlling
+terminals (i.e.\ ones associated with a session) may have a foreground process
+group. When a terminal first becomes associated with a session, its foreground
+process group is set to the process group of the session leader.
+
+The \texttt{tcgetpgrp()} and \texttt{tcsetpgrp()} functions are provided by the
+standard C library. Their implementations use the \texttt{ioctl()} system call
+to perform the required operation.
+
+\texttt{ioctl()} is a very general, catch-all system call that is most commonly
+used to provide functionality that is too simple to merit a separate system
+call. It takes as arguments a file descriptor, an \textit{opcode} (short for
+\textit{operation code}), and a generic argument. The opcode is simply a numeric
+value that tells the kernel what operation to perform. The argument's
+interpretation depends on the specific opcode. Most opcodes are only valid for
+file descriptors of a certain type, e.g.\ ones representing open terminal device
+files. The opcodes used for getting and setting the foreground process group are
+\texttt{TIOCGPGRP} and \texttt{TIOCSPGRP} respectively.
+
+When the foreground process group becomes empty, the terminal's \texttt{t\_pgrp}
+field is set to \texttt{NULL}. Thus, a terminal does not need to have a
+foreground process group at all times, even if it is associated with a session.
+
 \chapter{Implementation Challenges}
 \section{Process control}
 \subsection{Stopping and resuming processes with signals}
