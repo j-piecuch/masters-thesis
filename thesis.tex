@@ -1,7 +1,7 @@
 \RequirePackage{xcolor}
 \documentclass[shortabstract, manyadvisors, english, mgr]{iithesis}
 \usepackage[utf8]{inputenc}
-\usepackage{minted, epigraph, xurl}
+\usepackage{minted, fancyvrb, epigraph, xurl, pifont, graphicx}
 
 \englishtitle{Implementation of the Terminal Subsystem \\ and Job Control \\
   in the Mimiker Operating System}
@@ -17,7 +17,41 @@
 
 \transcriptnum{281940}
 
-\setminted[c]{frame=single, baselinestretch=1.1}
+\makeatletter
+\minted@def@optcl@switch{stdlibhighlighting}{-P stdlibhighlighting}
+\minted@def@optcl@switch{c99highlighting}{-P c99highlighting}
+\minted@def@optcl@switch{c11highlighting}{-P c11highlighting}
+\minted@def@optcl@switch{platformhighlighting}{-P platformhighlighting}
+\AtBeginDocument{%
+  \newcounter{llabel}[listing]%
+  \renewcommand*{\thellabel}{%
+    \ifnum\value{llabel}<0 %
+      \@ctrerr
+    \else
+      \ifnum\value{llabel}>10 %
+        \@ctrerr
+      \else
+        \protect\ding{\the\numexpr\value{llabel}+201\relax}%
+      \fi
+    \fi
+  }%
+}
+\newlength{\llabelsep}
+\setlength{\llabelsep}{1pt}
+\newcommand*{\llabel}[1]{%
+  \begingroup
+  \refstepcounter{llabel}%
+  \label{#1}%
+  \llap{\thellabel\kern\llabelsep}%
+  \endgroup
+}
+\makeatother
+
+\setminted[c]{fontsize=\small, frame=lines, baselinestretch=1.1, stdlibhighlighting=false,
+  c99highlighting=false, c11highlighting=false, platformhighlighting=false, escapeinside=@@}
+
+\renewcommand\linenumberfont{\normalfont\bfseries\large}
+%\renewcommand{\theFancyVerbLine}{\arabic{FancyVerbLine}}
 
 \begin{document}
 
@@ -105,9 +139,933 @@ character-based computer interfaces that are compatible with those terminals
 remain an important part, or even the basis of interaction between a user and a
 computer system.
 
-\section{Job Control}
+\chapter{Job Control}
 
-The primary way of controlling a computer over a terminal connection is using a
+Support for job control on POSIX-compliant systems is realised by several
+concepts:
+\begin{itemize}
+\item \textit{Process groups}, which allow for grouping processes that are part
+  of a single job, together with facilities to send a signal to every process in
+  a process group at once;
+\item \textit{Sessions}, which connect all the processes that are run by a user
+  between logging in and logging out of the system;
+\item \textit{Job control signals} like \texttt{SIGSTOP} and \texttt{SIGCONT},
+  which allow for stopping and continuing individual processes;
+\item \textit{Background and foreground process groups}, which determine the
+  processes that are allowed to receive user input and write output to the
+  terminal.
+\end{itemize}
+
+We will now describe each of these concepts in detail, with the exception of
+background and foreground process groups, which will be described in the next chapter.
+For each concept, we will first bring up the relevant parts of the POSIX
+specification, after which we will lay out its implementation in the Mimiker
+operating system.
+
+\section{Process groups and sessions}
+
+\subsection{POSIX process groups and sessions}
+
+\subsubsection{POSIX process groups}
+
+Process groups are central to job control. They relate processes performing a
+common task, such as a shell pipeline. Process groups are identified by their
+\textit{process group ID}, or \textit{PGID} for short.
+
+Every process belongs to exactly one process group. When a new process is
+created using \Verb{fork()}\cite{fork}, it runs in the process group of its
+parent. A process can change its own process group, or that of one of its
+children. This is done using the \Verb{setpgid()}\cite{setpgid} function. It is
+used by the shell to set the process group of all processes in a job.
+
+There is a correspondence between process IDs and process groups IDs: every
+newly created process group's ID is equal to the process ID of its first
+inhabitant, also called the \textit{process group leader}. The leader process is
+not special in any way, other than the fact that its PID is equal to the PGID of
+the group it is in.
+
+Process groups are useful from a job control perspective, since certain POSIX
+functions like \Verb{waitpid()}\cite{wait} and \Verb{kill()}\cite{kill} can
+operate on entire process groups. For instance, \Verb{waitpid()} allows the
+caller to wait for a status change of any child process in the specified process
+group.
+
+\subsubsection{POSIX sessions}
+
+The concept of a session is fairly intuitive.
+A new session starts when a user logs into the system. Initially, the user's
+shell is the only process in the session. All jobs (and therefore process
+groups) created by the shell belong to the same session. Every process group
+must belong to exactly one session. Session are collections of process groups,
+much in the same way as process groups are collections of processes. A notable
+difference is that a process group cannot change its session during its
+lifetime, while a process can change its process group. Like processes and
+process groups, sessions have numeric identifiers called session IDs, or SIDs.
+
+A session may have an associated terminal device. That terminal device is called
+the session's \textit{controlling terminal}. They will be explained in detail in
+the next chapter.
+
+Processes are not confined to their session: they can separate from it by
+creating their own session using the \Verb{setsid()}\cite{setsid} function. It
+creates a new session, initially containing just the calling process. All
+sessions are created in this way. Creating a new session necessarily means also
+creating a new process group: if it didn't, we could have two processes in the
+same process group, but in different sessions. The SID of the newly created
+session is equal to the PID of the creating process.
+
+The process that creates a new session is called the \textit{session leader}.
+Usually, the session leader a is shell, or some other program ``in charge'' of
+running and controlling all other programs in the session. It is supposed to
+be the last process in its session to exit. If a session leader exits while its
+session contains other processes, every process in the session will receive a
+\Verb{SIGHUP} signal, whose default effect is to kill the receiving process.
+Processes can ignore this signal, so it is possible for a session to outlive its
+leader.
+
+Some programs are supposed to run indefinitely and without user intervention. A
+good example are \textit{daemons}: programs that run in the background, e.g.
+providing services to other programs. A user may launch a daemon process from
+the shell. If the shell process exits, the daemon should continue to run. The
+daemon can become independent from the shell by creating its own session. When
+the shell exits, the daemon will not be notified in any way, since it will be in
+a different session. Independence from the shell should not be confused with
+independence from the user: the user may open a shell in another session and
+send a signal to the daemon process, e.g. \Verb{SIGKILL}.
+
+Figure \ref{fig:proc-hierarchy} illustrates a typical grouping of processes into
+process groups and sessions. Arrows indicate parent-child relationships. It can
+be seen that \Verb{sh}, \Verb{sshd} and \Verb{init} are session leaders. The
+\Verb{sshd} process is a daemon that was started by \Verb{init}. The shell
+(\Verb{sh}) has two active jobs, which occupy process groups 4 and 6. The two
+jobs were spawned using the following shell command:\\
+\Verb{cat /etc/passwd | grep user & echo hello}\\
+This runs the pipeline \Verb{cat /etc/passwd | grep user} as a background job,
+and starts the job \Verb{echo hello} without waiting for the background job to
+finish.
+
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=\textwidth, keepaspectratio]{img/proc-hierarchy}
+  \caption{A typical process hierarchy.}
+  \label{fig:proc-hierarchy}
+\end{figure}
+
+\subsubsection{Orphaned process groups}
+
+As we have just explained, processes belonging to the same shell job are put
+inside the same process group. The shell is responsible for managing jobs, which
+means keeping track of changes in their state (a job can become stopped when the
+user inputs a special character), as well as manipulating them according to the
+user's commands. However, when a shell exits, perhaps due to a bug, there might
+no longer be a process managing these jobs. Specifically, there might no longer
+be a process that can continue stopped jobs. Those jobs are doomed to being
+stopped forever!
+
+This is where the concept of \textit{orphaned process groups} comes into play. A
+process group is orphaned when none of the processes in the group have a parent
+that is in the same session, but in a different process group.
+
+Consider the example of a shell: all jobs are in a different process group, but
+in the same session as the shell. Therefore, as long the shell is alive, the
+process groups of the jobs are not orphaned. However, when the shell process
+terminates, all children of the shell are \textit{reparented}, i.e. some other
+process becomes their parent, usually the \textit{init} process with PID 1. The
+new parent is usually in a different session, so after reparenting the process
+groups of the jobs are orphaned.
+
+To solve the problem of jobs being stopped forever, when a process group becomes
+orphaned, if the process group contains at least one stopped process, then every
+process in the group is sent a \Verb{SIGHUP} signal followed by a \Verb{SIGCONT}
+signal followed by \Verb{SIGHUP}. The \Verb{SIGCONT} signal will resume stopped
+processes, and the \Verb{SIGHUP} signal notifies the processes that they are now
+orphaned (it will also most likely kill the processes, as that is the signal's
+default action).
+
+Furthermore, processes in orphaned process groups cannot be stopped by
+\textit{terminal stop signals}, i.e. \Verb{SIGTSTP}, \Verb{SIGTTOU} and
+\Verb{SIGTTIN}. These signal are explained in section \ref{job-control-signals}.
+
+\subsection{Process groups in the Mimiker kernel}
+
+We will now describe the implementation of process groups in the Mimiker
+kernel. First, we lay out the data structures used. After that, we will go over
+how processes enter and exit process groups.
+
+\subsubsection{Data structures}
+
+\subsubsection*{\Verb{pgrp_t}}
+
+The \Verb{pgrp_t} structure represents a single process group.
+
+\begin{listing}[H]
+\begin{minted}{c}
+typedef struct pgrp {
+  mtx_t pg_lock;
+  TAILQ_ENTRY(pgrp) pg_hash;
+  TAILQ_HEAD(, proc) pg_members;
+  session_t *pg_session;
+  int pg_jobc;
+  pgid_t pg_id;
+} pgrp_t;
+\end{minted}
+\caption{\texttt{include/sys/proc.h}: definition of \Verb{pgrp_t}.}
+\label{lst:pgrp}
+\end{listing}
+
+The \Verb{pg_lock} mutex synchronizes concurrent accesses to the list of
+members. The \Verb{pg_hash} field is a list entry used to link the structure
+into the global hashtable used to lookup process groups by PGID. 
+
+All processes that are members of the process group are on the \Verb{pg_members}
+list. The list allows easy access, e.g. when a signal needs to be sent to all
+members of the group.
+
+\Verb{pg_session} is a pointer to the \Verb{session_t} structure representing
+the session that this process group is a part of. Every process group is a part
+of some session.
+
+The \Verb{pg_jobc} field is a counter that tracks how many processes
+\textit{qualify the group for job control}. We say that a process qualifies the
+group for job control if and only if its parent is in a different process group
+and in the same session. This way, when \Verb{pg_jobc} drops to zero, we know
+that the process group has become orphaned.
+
+The \Verb{pg_id} field is simply the numeric ID of the process group.
+
+\subsubsection*{\Verb{proc_t::p_pgrp}}
+
+The \Verb{p_pgrp} field of the process descriptor structure is a pointer to the
+group that the process is a member of.
+
+\subsubsection{Changing process groups}
+
+Listing \ref{lst:pgrp-enter} shows kernel code implementing the POSIX
+\Verb{setpgid()} function. \Verb{p} is the process that is performing the system
+call, \Verb{target} is the PID of the process whose process group is to be
+changed, and \Verb{pgid} is the PGID of the process group to which the target
+process is to be moved.
+
+\begin{listing}[H]
+\begin{minted}{c}
+int pgrp_enter(proc_t *p, pid_t target, pgid_t pgid) {
+@\llabel{f1}@  SCOPED_MTX_LOCK(all_proc_mtx);
+  proc_t *targetp = proc_find_raw(target);
+
+@\llabel{f2}@  if (targetp == NULL || !proc_is_alive(targetp) ||
+      (targetp != p && targetp->p_parent != p))
+    return ESRCH;
+@\llabel{f3}@  if (targetp == targetp->p_pgrp->pg_session->s_leader)
+    return EPERM;
+@\llabel{f4}@  if (targetp->p_pgrp->pg_session != p->p_pgrp->pg_session)
+    return EPERM;
+
+  pgrp_t *pg = pgrp_lookup(pgid);
+
+  /* Create new group if one does not exist. */
+@\llabel{f5}@  if (pg == NULL) {
+    /* New pgrp can only be created with PGID = PID of target process. */
+    if (pgid != target)
+      return EPERM;
+    pg = pgrp_create(pgid);
+    pg->pg_session = p->p_pgrp->pg_session;
+    session_hold(pg->pg_session);
+@\llabel{f6}@  } else if (pg->pg_session != p->p_pgrp->pg_session) {
+    /* Target process group must be in the same session
+     * as the calling process. */
+    return EPERM;
+  }
+
+@\llabel{f7}@  return _pgrp_enter(targetp, pg);
+}
+\end{minted}
+\caption{\Verb{sys/kern/proc.c}: definition of \Verb{pgrp_enter()}.}
+\label{lst:pgrp-enter}
+\end{listing}
+
+First, we \ref{f1} acquire the \Verb{all_proc_mtx}, which synchronizes accesses
+to process-tree structures, such as process groups and sessions. Next, lines
+\ref{f2}, \ref{f3} and \ref{f4} respectively perform the following checks:
+\begin{itemize}
+\item The target process must exist, be alive (i.e. executing normally or
+  stopped), and it must either be a child of the calling process, or be the
+  calling process itself;
+\item The target process must not be a session leader;
+\item The target process must be in the same session as the calling process.
+\end{itemize}
+We then \ref{f5} check whether the target process group exists. If it doesn't,
+it is created, but only if the requested PGID matches the PID of the target
+process. At \ref{f6} we perform yet another permission check. Finally, we call
+\Verb{_pgrp_enter()} to perform the actual work of changing the process group of
+the target process.
+
+Now, let's see how a process group switch actually happens.
+\begin{listing}[H]
+\begin{minted}{c}
+static int _pgrp_enter(proc_t *p, pgrp_t *target) {
+  pgrp_t *old_pgrp = p->p_pgrp;
+
+@\llabel{g1}@  if (old_pgrp == target)
+    return 0;
+
+@\llabel{g2}@  pgrp_jobc_enter(p, target);
+  pgrp_jobc_leave(p, old_pgrp);
+
+@\llabel{g3}@  mtx_lock_pair(&old_pgrp->pg_lock, &target->pg_lock);
+
+  WITH_PROC_LOCK(p) {
+@\llabel{g4}@    TAILQ_REMOVE(&old_pgrp->pg_members, p, p_pglist);
+    TAILQ_INSERT_HEAD(&target->pg_members, p, p_pglist);
+    p->p_pgrp = target;
+  }
+
+  mtx_unlock_pair(&old_pgrp->pg_lock, &target->pg_lock);
+
+@\llabel{g5}@  if (TAILQ_EMPTY(&old_pgrp->pg_members))
+    pgrp_remove(old_pgrp);
+
+  return 0;
+}
+\end{minted}
+\caption{\Verb{sys/kern/proc.c}: definition of \Verb{_pgrp_enter()}.}
+\label{lst:-pgrp-enter}
+\end{listing}
+
+We first \ref{g1} check whether we need to change groups at all. If we do, we
+\ref{g2} adjust the \Verb{pg_jobc} counters of the old group, target group, as
+well as the process groups of all children of the process. We will examine these
+functions in a minute.
+
+The process group switch must appear atomic. For this reason it is necessary to
+hold both the old group and target group's lock. However, the order in which we
+acquire the two locks must be consistent across the whole kernel, in order to
+avoid deadlocks. The \ref{g3} \Verb{mtx_lock_pair()} function acquires two mutex
+locks in a consistent order, based on the memory addresses of the locks.
+
+At \ref{g4}, we are finally ready to make the switch. We remove the process from
+the old group's list of members, add it to the target group's list, and change
+the \Verb{p_pgrp} pointer.
+
+At the end, we \ref{g5} check whether the process was the last remaining process
+in the old group. If so, the process group is removed.
+
+\subsubsection{Orphaned process groups}
+
+The \Verb{pg_jobc} counters need to be adjusted whenever a process leaves or
+enters a process group. However, it is not sufficient to adjust only the counter
+of the process group being entered or left. When a process leaves a process
+group, the children of the process may no longer qualify their process group for
+job control.
+
+Figure \ref{fig:orphan} illustrates a scenario in which a call to
+\Verb{setpgid()} causes the process group of a child of the calling process to
+become orphaned. For this reason, it is necessary to check whether the children
+still qualify their process groups for job control whenever leaving or entering
+a process group.
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=\textwidth, keepaspectratio]{img/orphan}
+  \caption{A parent's change of process group causes a child's process group to
+    become orphaned.}
+  \label{fig:orphan}
+\end{figure}
+
+The accounting associated with \Verb{pg_jobc} is split into two functions:\\
+\Verb{pgrp_jobc_enter()} and \Verb{pgrp_jobc_leave()}.
+
+\begin{listing}[H]
+\begin{minted}{c}
+static void pgrp_jobc_enter(proc_t *p, pgrp_t *pg) {
+  assert(mtx_owned(all_proc_mtx));
+
+@\llabel{h1}@  if (same_session_p(p->p_parent->p_pgrp, pg))
+    pg->pg_jobc++;
+
+  proc_t *child;
+@\llabel{h2}@  TAILQ_FOREACH (child, CHILDREN(p), p_child)
+    if (same_session_p(child->p_pgrp, pg))
+      child->p_pgrp->pg_jobc++;
+}
+\end{minted}
+\caption{\Verb{sys/kern/proc.c}: definition of \Verb{pgrp_jobc_enter()}.}
+\label{lst:-pgrp-enter}
+\end{listing}
+
+\Verb{p} is the process entering the process group \Verb{pg}.
+The \Verb{same_session_p()} function returns \Verb{true} if and only if the two
+groups are different, but in the same session.
+
+At \ref{h1}, we check whether \Verb{p} will qualify the process group \Verb{pg}
+for job control after entering it. If so, the \Verb{pg_jobc} counter is
+incremented.
+
+Next, at \ref{h2} we do the same for the children of \Verb{p}: we check whether
+they will qualify their process groups after \Verb{p} enters \Verb{pg}. If so,
+the group's \Verb{pg_jobc} is incremented.
+
+The \Verb{pgrp_jobc_leave()} function has a very similar structure, except now
+we call \Verb{pgrp_maybe_orphan()} instead of incrementing \Verb{pg_jobc}. The
+\Verb{pgrp_maybe_orphan()} function decrements the process group's
+\Verb{pg_jobc}, and if it reaches zero, sends the appropriate signals.
+
+\begin{listing}[H]
+\begin{minted}{c}
+static void pgrp_jobc_leave(proc_t *p, pgrp_t *pg) {
+  assert(mtx_owned(all_proc_mtx));
+
+  if (same_session_p(p->p_parent->p_pgrp, pg))
+    pgrp_maybe_orphan(pg);
+
+  proc_t *child;
+  TAILQ_FOREACH (child, CHILDREN(p), p_child)
+    if (same_session_p(child->p_pgrp, pg))
+      pgrp_maybe_orphan(child->p_pgrp);
+}
+\end{minted}
+\caption{\Verb{sys/kern/proc.c}: definition of \Verb{pgrp_jobc_leave()}.}
+\label{lst:-pgrp-enter}
+\end{listing}
+
+\subsection{Sessions in the Mimiker kernel}
+
+\section{Job Control Signals}
+
+\subsection{POSIX signals}
+
+\textit{Signals} are used to notify processes of various events. These events
+can occur \textit{synchronously} or \textit{asynchronously} with respect to the
+process receiving the signal. POSIX signal semantics are (intentionally) very
+similar to those found in the original UNIX operating system
+\cite[Section~7.2]{unix-book}.
+
+A \textit{synchronous signal} is sent as a direct consequence of some (usually
+erroneous) action being performed by the receiving process. For instance, a
+process is sent a \texttt{SIGSEGV} signal upon trying to access an invalid
+memory location.
+
+An \textit{asynchronous signal} is sent independently of the actions of the
+receiving process, and may be received at any time. For example, whenever a
+process terminates, the system sends a \texttt{SIGCHLD} signal to its parent.
+
+Signals can be sent by the operating system in response to certain events (e.g.
+process termination), or by other processes, using the \texttt{kill()} function
+\cite{kill}. A process can send a signal to itself using the \texttt{raise()}
+function. As a shorthand, we shall say that a signal is sent to a process
+group when it's sent to every process that is a member of the group.
+
+The type of signal (\texttt{SIGSEGV}, \texttt{SIGCHLD}, etc.) is determined by
+the \textit{signal number}. In fact, \texttt{SIGSEGV} and others are \textit{C
+  preprocessor macros} that expand to unique signal numbers.
+
+Processes can take different actions in response to signals with different
+numbers. Every process has its own set of \textit{signal actions} associated
+with every signal number. There are three possible actions that can be taken in
+response to a signal:
+\begin{enumerate}
+\item Take the default action for that signal number.
+  
+  Every signal number has an associated default action. For instance, the
+  default action of the \texttt{SIGSEGV} signal is to immediately terminate the
+  receiving process.
+\item Ignore the signal.
+\item Invoke a \textit{signal handler routine}.
+
+  The handler routine is run in the context of the process that receiving
+  process. After the handler finishes execution, the process is resumed.
+\end{enumerate}
+
+The mapping of signal numbers to signal actions is controlled using the
+\texttt{sigaction()} function \cite{sigaction}. Not every signal can have its
+action modified: \texttt{SIGKILL} and \texttt{SIGSTOP} cannot have their actions
+changed from the default one, which is to terminate or stop the receiving process,
+respectively.
+
+The \textit{delivery} of a signal occurs when the target (i.e. receiving)
+process takes the action associated with the signal. A signal may be delivered
+long after it is initially sent, or it may not be delivered at all, even if it
+isn't ignored. This is because a process may \textit{block} a set of signals
+from being delivered. A blocked signal cannot be delivered until it is
+unblocked. Contrary to signals that are ignored, blocked signals await delivery
+instead of being discarded.
+
+The \textit{signal mask} determines the set of blocked signals for a thread. It
+can be examined and modified using the \texttt{sigprocmask()} function
+\cite{sigprocmask}. Unsurprisingly, the \texttt{SIGKILL} and \texttt{SIGSTOP}
+signals cannot be blocked from being delivered.
+
+\subsection{Signals used for job control}
+\label{job-control-signals}
+
+The following signals are most commonly used to control jobs on POSIX-compliant
+operating systems:
+\begin{itemize}
+\item \texttt{SIGINT}
+
+  Sent by the operating system in response to the special
+  character \texttt{VINTR} being received on the terminal. Its purpose is to
+  signal interruption by the user. A process that receives this signal is
+  usually expected to terminate shortly. The default action associated with this
+  signal is to terminate the receiving process.
+
+\item \texttt{SIGQUIT}
+
+  Similar to \texttt{SIGINT}, except it is sent in response to the
+  \texttt{VQUIT} character, and the default action additionally generates a core
+  dump of the receiving process.
+
+\item \texttt{SIGTTOU}
+
+  Sent by the operating system whenever a background job attempts to write to
+  the terminal, provided the \texttt{TOSTOP} terminal flag is set (more on
+  terminal flags later). The default action associated with this signal is to
+  stop the receiving process.
+  
+\item \texttt{SIGTTIN}
+
+  Sent by the operating system whenever a background job attempts to read from
+  the terminal. Background jobs may not read from the terminal, regardless of
+  the terminal settings. The default action associated with this signal is to
+  stop the receiving process.
+
+\item \texttt{SIGTSTP}
+
+  Sent by the operating system in response to the special character
+  \texttt{VSUSP} being received on the terminal. Its purpose is to stop the
+  foreground job. Well-behaving processes should not ignore this signal. Many
+  programs need to do some cleanup before stopping: in that case, they register
+  a handler that does the necessary cleanup, after which it performs
+  \texttt{raise(SIGSTOP)}. The default action associated with this signal is to
+  stop the receiving process.
+
+\item \texttt{SIGSTOP}
+
+  This signal is not sent by the operating system. It unconditionally stops the
+  receiving process. It cannot be blocked or ignored. 
+
+\item \texttt{SIGCONT}
+
+  This is the only signal that can resume a stopped process (apart from
+  \texttt{SIGKILL}, which resumes it only to immediately terminate it). It is
+  usually sent by the shell, e.g. when a background job that was stopped by a
+  \texttt{SIGTTIN} signal is brought into the foreground.
+
+\item \texttt{SIGCHLD}
+
+  Sent by the operating system in response to the termination of a process. The
+  signal is sent to the parent of the terminating process. Shells use this
+  signal to update their data on currently running jobs.
+\end{itemize}
+
+\subsection{Signals in the Mimiker kernel}
+
+In this subsection we describe the implementation of signals in the Mimiker
+kernel. First, we lay out the data structures used, after which we go through
+how exactly signals are sent and delivered in the kernel. Lastly, we examine how
+processes are stopped in response to the delivery of a stop signal.
+
+\subsubsection{Signal data structures}
+
+We will now describe the various data types and structures that are critical to
+the implementation of signals in the Mimiker kernel.
+
+\subsubsection*{\Verb{sigaction_t}}
+
+
+The \Verb{sigaction_t} data type describes the disposition of a signal.
+\begin{listing}[H]
+\begin{minted}{c}
+typedef void (*sig_t)(int); /* type of signal function */
+
+typedef struct sigaction {
+  union {
+    sig_t sa_handler;
+    void (*sa_sigaction)(int, siginfo_t *, void *);
+  };
+  sigset_t sa_mask;
+  int sa_flags;
+} sigaction_t;
+\end{minted}
+\caption{\texttt{include/sys/signal.h}: definition of \Verb{sigaction_t}.}
+\end{listing}
+
+The \Verb{sa_handler} and \Verb{sa_sigaction} fields are
+simply pointers to a signal handler function. Processes can register either a
+handler of type \Verb{sig_t}, which takes only the signal number as an
+argument, or a handler that takes two additional arguments:
+\begin{itemize}
+\item A pointer to a structure of type \Verb{siginfo_t}, which contains
+  more information about the signal (e.g. in the case of
+  \Verb{SIGCHLD}, the PID of the child process);
+
+\item A pointer that can be cast to a pointer to a structure of type
+  \Verb{ucontext_t}, which holds the processor context of the thread
+  that received the signal at the time of the signal's delivery.
+\end{itemize}
+The \Verb{sa_handler} field can also have the special value
+\Verb{SIG_DFL} or \Verb{SIG_IGN}, which respectively mean
+that the signal has the default disposition or is ignored.
+
+The \Verb{sa_mask} field is the set of signals that are blocked
+during the execution of the handler function. After the handler finishes, the
+signal mask is restored to its previous state.
+ 
+The \Verb{sa_flags} field is a set of flags that modify the behaviour
+of the signal in various ways. At the time of writing, the only flag supported
+in the Mimiker kernel is \Verb{SA_RESTART}, which causes system calls
+that are interrupted by a signal handler to be automatically restarted,
+transparently to the process that issued the system call.
+
+\subsubsection*{\Verb{proc_t::p_sigactions}}
+
+The \Verb{p_sigactions} field of the \Verb{proc_t} (i.e.
+process descriptor) structure is an array of structures of type
+\Verb{sigaction_t}. For each signal number \Verb{signo}, the
+disposition of that signal for the process is stored in
+\Verb{p_sigactions[signo]}.
+
+\subsubsection*{\Verb{thread_t::td_sigmask}}
+
+As opposed to the signal disposition, which is shared by all the threads of a
+process, every thread has its own set of blocked signals. This set is stored in
+the \Verb{td_sigmask} field of the \Verb{thread_t} structure,
+which describes a single thread of execution. The field is just a bit vector,
+with each bit corresponding to a signal number. If a bit is set, signals with
+the corresponding number are blocked from being delivered.
+
+\subsubsection*{\Verb{thread_t::td_sigpend}}
+
+The \Verb{td_sigpend} field of the \Verb{thread_t} structure
+represents pending signals, i.e. signals that have been sent to the thread and
+are waiting to be delivered. It is a structure of type
+\Verb{sigpend_t}, which consists of a bit vector of pending signal
+numbers, as well as a list of \Verb{ksiginfo_t} structures which carry
+additional information about signals.
+
+\subsubsection{Sending a signal}
+
+We will now walk through the code that does the actual work of sending a signal
+to a process. Sending signals in the Mimiker kernel is accomplished using the
+\Verb{sig_kill()} function. Listing \ref{lst:sig-kill} contains slightly
+simplified code of the function.
+
+\begin{listing}[H]
+\begin{minted}{c}
+void sig_kill(proc_t *p, ksiginfo_t *ksi) {
+@\llabel{a1}@  assert(mtx_owned(&p->p_lock));
+
+  signo_t sig = ksi->ksi_signo;
+  thread_t *td = p->p_thread;
+  bool ignored = sig_ignored(p->p_sigactions, sig);
+
+@\llabel{a2}@ if ((ignored && !sigprop_cont(sig)) || sig_ignore_ttystop(p, sig))
+    return;
+
+  /* If sending a stop or continue signal,
+   * remove pending signals with the opposite effect. */
+@\llabel{a3}@  if (defact_stop(sig)) {
+    sigpend_get(&td->td_sigpend, SIGCONT, NULL);
+  } else if (sigprop_cont(sig)) {
+    sigpend_delete_set(&td->td_sigpend, &stopmask);
+@\llabel{a4}@    if (p->p_state == PS_STOPPED)
+      proc_continue(p);
+    if (ignored)
+      return;
+  }
+
+@\llabel{a5}@  sigpend_put(&td->td_sigpend, ksiginfo_copy(ksi));
+
+@\llabel{a6}@  if (__sigismember(&td->td_sigmask, sig))
+    return;
+
+  WITH_SPIN_LOCK (td->td_lock) {
+@\llabel{a7}@    td->td_flags |= TDF_NEEDSIGCHK;
+    if (td_is_interruptible(td)) {
+      spin_unlock(td->td_lock);
+      sleepq_abort(td); /* Locks & unlocks td_lock */
+      spin_lock(td->td_lock);
+    }
+  }
+}
+\end{minted}
+\caption{\Verb{sys/kern/signal.c}: definition of \Verb{sig_kill()}.}
+\label{lst:sig-kill}
+\end{listing}
+
+The function accepts two parameters. The first is a pointer to a \Verb{proc_t}
+structure, which represents the process that the signal will be sent to. The
+second is a pointer to a \Verb{ksiginfo_t} structure, which describes the signal
+to be sent. Most importantly, it contains the signal number.
+
+The assertion at \ref{a1} ensures that the function's caller has acquired the
+necessary lock. Processes' and threads' signal data structures are globally
+shared (i.e. many threads of execution can access them), so access to them must
+be synchronized using locks.
+
+We then \ref{a2} quickly filter out ignored signals, with an exception for
+signals that can continue stopped processes, as some processing needs to be done
+even if they are ignored. Furthermore, terminal stop signals (\Verb{SIGTSTP},
+\Verb{SIGTTOU} and \Verb{SIGTTIN}) cannot stop a process which is in an orphaned
+process group: this case is detected by the \Verb{sig_ignore_ttystop()} function.
+
+In \ref{a3}, we check whether the signal being sent is a stop or continue
+signal. If it is, we remove all signals that are already pending which have the
+opposite effect. Additionally, for continue signals \ref{a4} we check whether
+the target process is stopped. If it is, we wake it up and notify its parent.
+
+Once control reaches \ref{a5}, we are certain that the signal isn't ignored, so
+it should be queued for delivery to the target process. The \Verb{sigpend_put}
+function inserts the signal into the set of pending signals for the target
+process's thread.
+
+The final step is notifying the thread that it needs to process its pending
+signals. This step is skipped if \ref{a6} the signal is blocked from being
+delivered. The \Verb{TDF_NEEDSIGCHK} flag lets the thread know that it should
+check for pending signals at the nearest opportunity. If the thread is
+\textit{sleeping interruptibly} (e.g. blocked inside a \Verb{read()} call on a
+terminal device, awaiting user input), it is awakened so that it can receive the
+signal.
+
+
+\subsubsection{Signal delivery}
+
+After a signal is sent, it remains in the pending set, waiting to be delivered.
+Signals are delivered to a process whenever control transfers from the kernel
+to that process, i.e. on transitions from the kernel to userspace. For instance,
+pending signals are delivered before returning from a system call. 
+
+Signal delivery can be divided into two steps: checking for a pending signal,
+and \textit{posting} a signal found to be pending. Posting a signal means
+setting up the execution context of the process, so that the signal handler is
+the first thing that is executed after returning control to the process.
+
+Signals with special effects (i.e. stopping or killing a process) are not
+posted, but are instead handled as part of checking for a pending signal. This
+is an implementation choice that simplifies handling of certain edge cases.
+
+Pending signals are not checked at all if the current thread does not have the
+\Verb{TDF_NEEDSIGCHK} flag set. This flag is set in \Verb{sig_kill()}, see
+listing \ref{lst:sig-kill}. This saves us from unnecessarily checking for
+pending signals every time we return to userspace.
+
+We will not describe how signals are posted, as most of the details are
+architecture-specific, and we are primarily concerned with job control signals,
+which are not posted at all (unless they have registered handlers, in which case
+they don't behave like job control signals). Instead, we will focus on the
+\Verb{sig_check()} function, which checks for pending signals and handles job
+control signals. Listing \ref{lst:sig-check} contains the source code of the
+function.
+
+\begin{listing}[H]
+\begin{minted}{c}
+int sig_check(thread_t *td, ksiginfo_t *out) {
+  proc_t *p = td->td_proc;
+  signo_t sig;
+
+@\llabel{b0}@  assert(mtx_owned(&p->p_lock));
+
+@\llabel{b1}@  while ((sig = sig_pending(td))) {
+@\llabel{b2}@    sigpend_get(&td->td_sigpend, sig, out);
+
+@\llabel{b3}@    if (sig_should_stop(p->p_sigactions, sig)) {
+      if (!sig_ignore_ttystop(p, sig))
+        proc_stop(sig);
+      continue;
+    }
+
+@\llabel{b4}@    if (sig_should_kill(p->p_sigactions, sig))
+      sig_exit(td, sig);
+
+@\llabel{b5}@    return sig;
+  }
+
+  WITH_SPIN_LOCK (td->td_lock)
+@\llabel{b6}@    td->td_flags &= ~TDF_NEEDSIGCHK;
+@\llabel{b7}@  return 0;
+}
+\end{minted}
+\caption{\Verb{sys/kern/signal.c}: definition of \Verb{sig_check()}.}
+\label{lst:sig-check}
+\end{listing}
+
+This function manipulates signal state, which is protected by the process's
+lock, hence the assertion at \ref{b0}.
+
+The function first \ref{b1} extracts a pending signal that is not currently
+blocked using the \Verb{sig_pending()} function. It returns just a signal
+number, so in the next step \ref{b2} we remove the signal from the set of
+pending signals.
+
+We then check \ref{b3} if the signal should stop the receiving process. Notice
+that after stopping the process with \Verb{proc_stop()}, control goes back to
+\ref{b1}.
+
+Next, we \ref{b4} handle signals that should kill the process. The
+\Verb{sig_exit()} function never returns.
+
+If the pending signal is neither a stop nor a kill signal, \ref{b5} the signal
+number is returned. Additional information about the signal is passed to the
+caller via the \Verb{out} output parameter. The signal is then passed to
+\Verb{sig_post()} to arrange for the handler to be called.
+
+If no signal needs to be posted, the function \ref{b6} clears the thread's
+\Verb{TDF_NEEDSIGCHK} flag, since there is no need to check for pending signals
+anymore. A return value of 0 \ref{b7} indicates to the caller that no signal
+needs to be posted.
+
+\subsubsection{Stopping and continuing processes}
+
+One of the job control features that were implemented from scratch as part of
+the implementation effort described in this thesis is support for stopping and
+continuing processes by means of the \Verb{SIGSTOP} and \Verb{SIGCONT} signals.
+
+A process is always in one of several states, denoted by the value of the
+\Verb{p_state} field in the process descriptor. When a process is executing
+normally, its state is \Verb{PS_NORMAL}. When a process is stopped, its state is
+\Verb{PS_STOPPED}. All the threads of a stopped process are also stopped and
+unable to run until the process is continued.
+
+The \Verb{proc_stop()} function stops the current process in response to a stop
+signal. Its source code is listed in listing \ref{lst:proc-stop}.
+
+\begin{listing}[H]
+\begin{minted}{c}
+void proc_stop(signo_t sig) {
+  thread_t *td = thread_self();
+  proc_t *p = td->td_proc;
+
+@\llabel{c1}@ assert(mtx_owned(&p->p_lock));
+  assert(p->p_state == PS_NORMAL);
+
+@\llabel{c2}@  p->p_state = PS_STOPPED;
+@\llabel{c3}@  p->p_stopsig = sig;
+  p->p_flags |= PF_STATE_CHANGED;
+  WITH_PROC_LOCK(p->p_parent) {
+@\llabel{c4}@    proc_wakeup_parent(p->p_parent);
+    sig_child(p, CLD_STOPPED);
+  }
+@\llabel{c5}@  WITH_SPIN_LOCK (td->td_lock) { td->td_flags |= TDF_STOPPING; }
+  proc_unlock(p);
+  /* We're holding no locks here, so our process can be continued before we
+   * actually stop the thread. This is why we need the TDF_STOPPING flag. */
+  spin_lock(td->td_lock);
+@\llabel{c6}@  if (td->td_flags & TDF_STOPPING) {
+    td->td_flags &= ~TDF_STOPPING;
+    td->td_state = TDS_STOPPED;
+@\llabel{c7}@    sched_switch(); /* Releases td_lock. */
+  } else {
+    spin_unlock(td->td_lock);
+  }
+  proc_lock(p);
+  return;
+}
+\end{minted}
+\caption{\Verb{sys/kern/proc.c}: definition of \Verb{proc_stop()}.}
+\label{lst:proc-stop}
+\end{listing}
+
+This function manipulates process state, hence the assertion at \ref{c1}. The
+next assertion simply makes sure that the process is in the expected state.
+Next, at \ref{c2} the process state is set to \Verb{PS_STOPPED}.
+
+At \ref{c3}, we set up information that is used by the \Verb{wait4()} system
+call. It is used by a process to wait for one of its children to change state.
+As the reader might have already guessed, stopping counts as a state change. The
+call to \Verb{proc_wakeup_parent()} at \ref{c4} notifies the parent process of
+the status change. In the next line, a \Verb{SIGCHLD} signal is sent to the
+parent.
+
+The rest of the function attempts to stop the process's thread. This task is
+fairly simple, due to the fact that all processes in the Mimiker kernel are
+single-threaded. Still, it is not as simple as one might like, due to some
+technicalities around locking.
+
+Specifically, we are not allowed to hold the thread's spinlock
+(\Verb{td->td_lock}) while releasing a mutex. Furthermore, we must release the
+process's lock before stopping the thread in \Verb{sched_switch()}, and the
+thread's spinlock must be held when calling \Verb{sched_switch()}. These
+constraints require us to briefly hold no locks at all. During this window of
+time, another process might continue the process we are trying to stop, in which
+case we should not stop the thread.
+
+The solution is to add the \Verb{TDF_STOPPING} thread flag, which signals that
+the thread is about to stop, but hasn't stopped yet. It is set \ref{c5} while
+still holding the process's lock. If the process is continued before the thread
+is stopped, the \Verb{TDF_STOPPING} flag is cleared. The stopping thread
+examines \ref{c6} the flag before changing its state. Thanks to this, the thread
+will stop only if the process is still stopped.
+
+After setting the thread state to \Verb{TDS_STOPPED}, the call \ref{c7} to
+\Verb{sched_switch()} hands over control to the scheduler, which will select
+another thread to run. The stopped thread will not be selected by the scheduler
+to run until it is continued.
+
+Let us now see how stopped processes are woken up. Continuing a process is
+simpler than stopping one, as can be seen by looking at listing \ref{lst:proc-continue}. 
+
+\begin{listing}[H]
+\begin{minted}{c}
+void proc_continue(proc_t *p) {
+  thread_t *td = p->p_thread;
+
+@\llabel{d1}@  assert(mtx_owned(&p->p_lock));
+  assert(p->p_state == PS_STOPPED);
+
+@\llabel{d2}@  p->p_state = PS_NORMAL;
+@\llabel{d3}@  p->p_flags |= PF_STATE_CHANGED;
+  WITH_PROC_LOCK(p->p_parent) {
+    proc_wakeup_parent(p->p_parent);
+  }
+@\llabel{d4}@  WITH_SPIN_LOCK (td->td_lock) { thread_continue(td); }
+}
+\end{minted}
+\caption{\Verb{sys/kern/proc.c}: definition of \Verb{proc_continue()}.}
+\label{lst:proc-continue}
+\end{listing}
+
+The assertion at \ref{d1} should come as no surprise at this point, as we are
+modifying the process's state. The next assertion ensures that we only attempt
+to continue processes that are actually stopped.
+
+We then \ref{d2} restore the process's \Verb{p_state} to \Verb{PS_NORMAL}. Next,
+we \ref{d3} notify the parent of the state change. Note that, in contrast to
+\Verb{proc_stop()}, we don't send a \Verb{SIGCHLD} signal to the parent process.
+This is in line with the POSIX specification.
+
+Lastly, we \ref{d4} wake up the thread of the process we are continuing. The
+\Verb{thread_continue()} function is very simple, and is presented in listing
+\ref{lst:thread-continue}.
+
+\begin{listing}[H]
+\begin{minted}{c}
+void thread_continue(thread_t *td) {
+@\llabel{e1}@  if (td->td_flags & TDF_STOPPING) {
+    td->td_flags &= ~TDF_STOPPING;
+  } else {
+@\llabel{e2}@    assert(td_is_stopped(td));
+@\llabel{e3}@    sched_wakeup(td, 0);
+  }
+}
+\end{minted}
+\caption{\Verb{sys/kern/thread.c}: definition of \Verb{thread_continue()}.}
+\label{lst:thread-continue}
+\end{listing}
+
+An important thing to notice is that even if a process's state indicates that it
+is stopped (i.e. \Verb{p_state == PS_STOPPED}), its thread is not guaranteed to
+also be stopped (i.e. \Verb{td_state == TDS_STOPPED}). The call to
+\Verb{proc_continue()} can occur at the time in \Verb{proc_stop()} where we are
+not holding any locks.
+
+For this reason, we first \ref{e1} check the \Verb{TDF_STOPPING} flag. If it is
+set, the thread has not stopped yet, and all we need to do is clear the flag.
+If the flag is not set, then we know that the thread is stopped, hence the
+assertion at \ref{e2}. We then \ref{e3} call \Verb{sched_wakeup()} to make the
+thread runnable again.
+
+The primary way of controlling a computer over a terminal connection
+ is using a
 \textit{shell}. A shell is a program that executes commands typed by the user.
 The purpose of most commands is to run a specified program with a given set of
 arguments. For example, the command \texttt{ls -l} instructs the shell to find a
@@ -129,8 +1087,10 @@ background job may be brought into the foreground and vice versa. Job control
 usually requires support from the operating system, and it's up to the shell to
 group related programs into jobs.
 
-\chapter{POSIX Terminals and Job Control}
-% \section{What is POSIX?}
+\chapter{The Terminal Subsystem}
+
+TODO Zrobić coś z tym i POSIX Job Control
+\section{What is POSIX?}
 
 POSIX~\cite{posix} is a set of standards specifying an operating system
 interface. Its primary goal is to make it easy to write portable libraries and
@@ -157,53 +1117,6 @@ Jobs are purely a shell concept: they are implemented entirely in the shell,
 and the operating system has no knowledge of them. However, there is a close
 correspondence between shell jobs and process groups, which are implemented by
 the operating system. The shell puts different jobs in different process groups.
-
-\subsection{Process groups}
-Process groups are central to job control. They relate processes performing a
-common task, such as a shell job. Process groups are identified by their
-\textit{process group ID}, or \textit{PGID} for short.
-
-Every process belongs to some process group. When a new process is created using
-\texttt{fork()}\cite{fork}, it runs in the process group of its parent.
-
-A process can change its own process group, or that of one of its children. This
-is done using the \texttt{setpgid()}\cite{setpgid} function. It is used by the shell to set
-the process group of all the processes in a job.
-
-TODO orphaned process groups
-\subsection{Sessions}
-The concept of a session is fairly intuitive.
-A new session starts when a user logs into the system. Initially, the user's
-shell is the only process in the session. All jobs (and therefore process
-groups) created by the shell belong to the same session. Every process group
-must belong to exactly one session. Session are collections of process groups,
-much in the same way as process groups are collections of processes.
-
-Processes are not confined to their session: they can separate from it by
-creating their own session using the \texttt{setsid()} function. It creates a
-new session, initially containing just the calling process. All sessions are
-created in this way. Creating a new session necessarily means also creating a
-new process group: if it didn't, we could have two processes in the same process
-group, but in different sessions.
-
-The process that creates a new session is called the \textit{session leader}.
-Usually, the session leader a is shell, or some other program ``in charge'' of
-running and controlling all other programs in the session. It is supposed to
-be the last process in its session to exit. If a session leader exits while its
-session contains other processes, every process in the session will receive a
-\texttt{SIGHUP} signal, whose default effect is to kill the receiving process.
-Processes can ignore this signal, so it is possible for a session to outlive its
-leader.
-
-Some programs are supposed to run indefinitely and without user intervention.
-A good example are \textit{daemons}: programs that run in the background, e.g.
-providing services to other programs. A user may launch a daemon process from
-the shell. If the shell process exits, the daemon should continue to run.
-The daemon can become independent from the shell by creating its own session.
-When the shell exits, the daemon will not be notified in any way.
-Independence from the shell should not be confused with independence from the
-\textit{user}: the user may open a shell in another session and send a signal to
-the daemon process, e.g. \texttt{SIGKILL}.
 
 \section{POSIX Terminals}
 On the surface, a terminal device is no different than a standard characters
@@ -781,91 +1694,6 @@ many seemingly unrelated issues needed to be resolved. Some of them were
 unimplemented features, while others concerned more fundamental design choices
 in the kernel. This chapter describes a number of interesting issues that arose,
 and how they have been resolved.
-
-\section{Process control}
-
-Certain signals used by the terminal subsystem, such as \texttt{SIGTTOU} and
-\texttt{SIGTTIN}, may \textit{stop} the receiving process. A stopped process
-cannot run or respond to signals until it is sent a \texttt{SIGCONT} signal.
-
-There was no prior support for process stopping in the Mimiker kernel. In this
-section, we describe the implementation of this feature and some design
-questions that needed to be answered.
-
-\subsection{Stopping and resuming processes with signals}
-
-There are four signals that may stop the receiving process: \texttt{SIGSTOP},
-\texttt{SIGTTOU}, \texttt{SIGTTIN}, and \texttt{SIGTSTP}. The first one is
-special in that it cannot be ignored or blocked from being delivered: if it is
-sent, it will always stop the target process.
-
-The other three signals are \textit{terminal stop signals}: they are usually
-sent by the terminal system in response to certain events, e.g.\ upon receiving
-the \texttt{VSTOP} control character. They may be ignored and blocked from being
-delivered. A terminal stop signal cannot stop a process that is a member of an
-orphaned process group. The reason for this is that an orphaned process group
-most likely doesn't have a supervising process such as a shell, and therefore it
-is unlikely that a stopped process in such a group would ever be resumed by a
-\texttt{SIGCONT} signal.
-
-In the kernel, stop signals are sent in much the same way as any other signal,
-using the \texttt{sig\_kill()} function. The function inserts the signal into
-the target thread's pending signal set and wakes it up from sleep if it is
-sleeping interruptibly. In addition, it removes any pending \texttt{SIGCONT}
-signals to avoid having contradictory signals pending at the same time.
-
-All threads handle pending signals just before returning to userspace, in the
-\texttt{on\_user\_exc\_leave()} function. The \texttt{sig\_check()} function checks
-for pending signals that have installed handlers. If it finds a special signals
-that doesn't have a handler installed, such as \texttt{SIGKILL} or
-\texttt{SIGSTOP}, it takes the appropriate action. In the case of stop signals,
-it calls \texttt{proc\_stop()}.
-
-\subsubsection{Process stopping}
-
-Stopping a process is not as simple as setting its state to
-\texttt{PS\_STOPPED}. The parent of the stopping process must be notified of a
-child's status change by a \texttt{SIGCHLD} signal. At the end, the thread of
-the stopping process is stopped by settings its state to \texttt{TDS\_STOPPED}
-and calling \texttt{sched\_switch()}, which will perform a context switch to
-another thread.
-
-Due to locking nuances, stopping a thread is a two-step operation. We first set
-the \texttt{TDF\_STOPPING} flag in the thread to signal our intent to stop. We
-then release all locks held and acquire the thread spinlock, which must be the
-only lock held when performing a context switch. The context switch is then
-performed provided the \texttt{TDF\_STOPPING} flag is still set. The code in
-listing shows the exact steps.
-
-\begin{listing}[H]
-\begin{minted}{c}
-void proc_stop() {
-  thread_t *td = thread_self();
-  proc_t *p = td->td_proc;
-
-  assert(mtx_owned(&p->p_lock));
-
-  p->p_state = PS_STOPPED;
-  notify parent of child status change;
-  WITH_SPIN_LOCK (td->td_lock) { td->td_flags |= TDF_STOPPING; }
-  proc_unlock(p);
-  /* We're holding no locks here, so our process can be continued
-   * before we actually stop the thread.
-   * This is why we need the TDF_STOPPING flag. */
-  spin_lock(td->td_lock);
-  if (td->td_flags & TDF_STOPPING) {
-    td->td_flags &= ~TDF_STOPPING;
-    td->td_state = TDS_STOPPED;
-    sched_switch(); /* Releases td_lock. */
-  } else {
-    spin_unlock(td->td_lock);
-  }
-  proc_lock(p);
-  return;
-}
-\end{minted}
-\caption{\texttt{sys/proc.c}: simplified version of \texttt{proc\_stop()}.}
-\end{listing}
 
 \subsection{Interruptible sleep and stop signals}
 \section{Locking}
