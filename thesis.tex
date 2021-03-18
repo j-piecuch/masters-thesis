@@ -169,11 +169,11 @@ operating system.
 \subsubsection{POSIX process groups}
 
 Process groups are central to job control. They relate processes performing a
-common task, such as a shell pipeline. Process groups are identified by their
+common task, such as a shell pipeline. Process groups are identified by a unique
 \textit{process group ID}, or \textit{PGID} for short.
 
 Every process belongs to exactly one process group. When a new process is
-created using \Verb{fork()}\cite{fork}, it runs in the process group of its
+created using \Verb{fork()}\cite{fork}, it joins the process group of its
 parent. A process can change its own process group, or that of one of its
 children. This is done using the \Verb{setpgid()}\cite{setpgid} function. It is
 used by the shell to set the process group of all processes in a job.
@@ -238,8 +238,10 @@ process groups and sessions. Arrows indicate parent-child relationships. It can
 be seen that \Verb{sh}, \Verb{sshd} and \Verb{init} are session leaders. The
 \Verb{sshd} process is a daemon that was started by \Verb{init}. The shell
 (\Verb{sh}) has two active jobs, which occupy process groups 4 and 6. The two
-jobs were spawned using the following shell command:\\
-\Verb{cat /etc/passwd | grep user & echo hello}\\
+jobs were spawned using the following shell command:
+\begin{quote}
+\Verb{cat /etc/passwd | grep user & echo hello}
+\end{quote}
 This runs the pipeline \Verb{cat /etc/passwd | grep user} as a background job,
 and starts the job \Verb{echo hello} without waiting for the background job to
 finish.
@@ -1453,7 +1455,7 @@ session. According to this notion, a process group is orphaned when it has no
 processes that qualify it for job control.
 
 The \texttt{pg\_jobc} field keeps track of the number of processes that qualify
-the process group for job control. When it drops to 0, the process group becomes
+the process group for job control. When it drops to zero, the process group becomes
 orphaned, which results in \texttt{SIGHUP} and \texttt{SIGCONT} being sent to
 every stopped process in the group.
 
