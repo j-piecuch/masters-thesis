@@ -552,6 +552,102 @@ static void pgrp_jobc_leave(proc_t *p, pgrp_t *pg) {
 
 \subsection{Sessions in the Mimiker kernel}
 
+We will now examine the implementation of sessions in the Mimiker kernel. After
+looking at the session data structure, we will see how new sessions are created.
+
+\subsubsection{Data structures}
+
+The \Verb{session_t} data structure represents a single session. Listing
+\ref{lst:sess} presents its complete definition.
+
+\begin{listing}[H]
+\begin{minted}{c}
+typedef struct session {
+  TAILQ_ENTRY(session) s_hash;
+  proc_t *s_leader;
+  int s_count;
+  sid_t s_sid;
+  tty_t *s_tty;
+  char s_login[LOGIN_NAME_MAX];
+} session_t;
+\end{minted}
+\caption{\Verb{include/sys/proc.h}: definition of \Verb{session_t}.}
+\label{lst:sess}
+\end{listing}
+
+The \Verb{s_hash} field is used to link the structure into the hashtable used to
+look up session strucutures by their session ID (SID).
+
+The \Verb{s_leader} field points to the process that is the session leader, i.e.
+the process that created the session by calling the \Verb{setsid()} function.
+Once the session leader terminates, the \Verb{s_leader} field of the session is
+set to \Verb{NULL}.
+
+The \Verb{s_count} field counts the number of process groups belonging to the
+session. Whenever a new process group joins the session, the
+\Verb{session_hold()} function increments the \Verb{s_count} field (see listing
+\ref{lst:pgrp-enter} for an example of its usage). When a process group is
+removed, the \Verb{pgrp_remove()} function, which can be seen used in listing
+\ref{lst:-pgrp-enter} decrements the session's \Verb{s_count} field. Once the
+value of the field reaches zero, the session is removed from the kernel and the
+memory occupied by the structure is reclaimed.
+
+The \Verb{s_sid} field holds the numeric ID of the session. It is equal to the
+PID of the process that created the session.
+
+The \Verb{s_tty} field is a pointer to the session's controlling terminal. For
+interactive sessions (i.e. sessions created by a user logging into the system
+and launching a shell), the controlling terminal is the device that provides
+input to the shell and spawned jobs, and receives their output. Not every
+session has a controlling terminal: daemon processes are usually placed in
+sessions without a controlling terminal. If a session has no controlling
+terminal, the value of its \Verb{s_tty} field is set to \Verb{NULL}.
+
+\subsubsection{Creating a session}
+
+User processes can create new sessions using the \Verb{setsid()} function from
+the C library. That function directly calls the \Verb{setsid()} system call,
+which is implemented by the \Verb{sys_setsid()} function in the kernel. That
+function, in turn, calls \Verb{session_enter()} to do the work. Listing
+\ref{lst:session-enter} presents the source code of \Verb{session_enter()}.
+
+\begin{listing}[H]
+\begin{minted}{c}
+int session_enter(proc_t *p) {
+@\llabel{i1}@  SCOPED_MTX_LOCK(&all_proc_mtx);
+
+  pgid_t pgid = p->p_pid;
+  pgrp_t *pg = pgrp_lookup(pgid);
+
+@\llabel{i2}@  if (pg)
+    return EPERM;
+
+@\llabel{i3}@  pg = pgrp_create(pgid);
+@\llabel{i4}@  pg->pg_session = session_create(p);
+
+@\llabel{i5}@  return _pgrp_enter(p, pg);
+}
+\end{minted}
+\caption{\Verb{sys/kern/proc.c}: definition of \Verb{session_enter()}.}
+\label{lst:session-enter}
+\end{listing}
+
+First, we \ref{i1} acquire the \Verb{all_proc_mtx} lock, which is required to perform
+things such as process group lookups and creating new sessions and process
+groups.
+
+At \ref{i2}, we ensure that there doesn't already exist a process group with the
+same PGID as the PID of the calling process. The process group that is created as
+a result of creating a new session has a PGID equal to the PID of the calling
+process, and if a group with such a PGID already exists, we can't create the
+group we need, since PGIDs must be unique.
+
+Once we have ensured that we can create the group, we do so at \ref{i3}. Then,
+we \ref{i4} create a new session with \Verb{p} as the session leader and link it
+to the newly created group (the session created by \Verb{session_create()} has a
+\Verb{s_count} of 1, so there's no need to adjust it). Finally, we \ref{i5}
+change the process group of the calling process to the one we just created.
+
 \section{Job Control Signals}
 
 \subsection{POSIX signals}
