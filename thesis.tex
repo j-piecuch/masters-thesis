@@ -412,15 +412,15 @@ static int _pgrp_enter(proc_t *p, pgrp_t *target) {
 @\llabel{g2}@  pgrp_jobc_enter(p, target);
   pgrp_jobc_leave(p, old_pgrp);
 
-@\llabel{g3}@  mtx_lock_pair(&old_pgrp->pg_lock, &target->pg_lock);
-
-  WITH_PROC_LOCK(p) {
-@\llabel{g4}@    TAILQ_REMOVE(&old_pgrp->pg_members, p, p_pglist);
-    TAILQ_INSERT_HEAD(&target->pg_members, p, p_pglist);
-    p->p_pgrp = target;
+@\llabel{g3}@  WITH_MTX_LOCK(&old_pgrp->pg_lock) {
+    WITH_MTX_LOCK(&target->pg_lock) {
+      WITH_PROC_LOCK(p) {
+@\llabel{g4}@        TAILQ_REMOVE(&old_pgrp->pg_members, p, p_pglist);
+        TAILQ_INSERT_HEAD(&target->pg_members, p, p_pglist);
+        p->p_pgrp = target;
+      }
+    }
   }
-
-  mtx_unlock_pair(&old_pgrp->pg_lock, &target->pg_lock);
 
 @\llabel{g5}@  if (TAILQ_EMPTY(&old_pgrp->pg_members))
     pgrp_remove(old_pgrp);
@@ -437,11 +437,33 @@ We first \ref{g1} check whether we need to change groups at all. If we do, we
 well as the process groups of all children of the process. We will examine these
 functions in a minute.
 
-The process group switch must appear atomic. For this reason it is necessary to
-hold both the old group and target group's lock. However, the order in which we
-acquire the two locks must be consistent across the whole kernel, in order to
-avoid deadlocks. The \ref{g3} \Verb{mtx_lock_pair()} function acquires two mutex
-locks in a consistent order, based on the memory addresses of the locks.
+The process group switch must appear atomic. For this reason, it is necessary to
+hold \Verb{all_proc_mtx}, both the old group and target group's lock, and the
+process lock of the target process. We acquire the necessary locks at \ref{g3}.
+\Verb{all_proc_mtx} is not acquired, since it is already held by the caller of
+\Verb{_pgrp_enter()}.
+
+When acquiring two locks of the same type (in this case process group locks),
+one has to be very careful not to cause a deadlock. The usual way to ensure
+safety from deadlocks is to establish an order on the locks, and whenever
+multiple locks need to be acquired, make sure all required locks are acquired
+according to that order. However, in this case deadlock can be avoided without
+specifying an order on process group locks, by enforcing the following rule:
+\begin{quote}
+  In order to acquire multiple process group locks, a thread must already hold
+  the \Verb{all_proc_mtx} lock.
+\end{quote}
+With this rule in force, it is impossible for two threads to concurrently
+attempt to acquire multiple process group locks, since \Verb{all_proc_mtx} will
+act as a serializer between them. The rule is a natural fit in this particular
+situation for two reasons:
+\begin{itemize}
+  \item \Verb{_pgrp_enter()} is the only place in the whole kernel where there
+    is a need to acquire multiple process group locks;
+  \item The \Verb{all_proc_mtx} lock is already held everywhere
+    \Verb{_pgrp_enter()} is called. Therefore, virtually no code changes had to
+    be made in order to accomodate this rule.
+\end{itemize}
 
 At \ref{g4}, we are finally ready to make the switch. We remove the process from
 the old group's list of members, add it to the target group's list, and change
