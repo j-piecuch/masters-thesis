@@ -139,6 +139,33 @@ character-based computer interfaces that are compatible with those terminals
 remain an important part, or even the basis of interaction between a user and a
 computer system.
 
+\section{What is POSIX?}
+
+POSIX~\cite{posix} is a set of standards specifying an operating system
+interface. Its primary goal is to make it easy to write portable libraries and
+applications that work across different operating systems, although they usually
+need to be compiled for each operating system separately.
+
+Among other things, it defines an Application Programming Interface (API) for
+programs written in the C programming language that allows them to interact with
+the system and use its services. Every POSIX-compliant operating system must
+provide an implementation of this API.
+
+The Mimiker operating system implements the POSIX API, but the implementation is
+far from complete. This allows us to use existing programs using the POSIX API
+like shells, command line utilities and text editors.
+
+\section{Jobs}
+
+A job consists of one or more processes. The processes are usually connected in
+a pipeline, with each one accepting input from the previous one in the chain,
+and feeding output to the next one.
+
+Jobs are purely a shell concept: they are implemented entirely in the shell,
+and the operating system has no knowledge of them. However, there is a close
+correspondence between shell jobs and process groups, which are implemented by
+the operating system. The shell puts different jobs in different process groups.
+
 \chapter{Job Control}
 
 Support for job control on POSIX-compliant systems is realised by several
@@ -1210,33 +1237,7 @@ group related programs into jobs.
 \chapter{The Terminal Subsystem}
 
 TODO Zrobić coś z tym i POSIX Job Control
-\section{What is POSIX?}
-
-POSIX~\cite{posix} is a set of standards specifying an operating system
-interface. Its primary goal is to make it easy to write portable libraries and
-applications that work across different operating systems, although they usually
-need to be compiled for each operating system separately.
-
-Among other things, it defines an Application Programming Interface (API) for
-programs written in the C programming language that allows them to interact with
-the system and use its services. Every POSIX-compliant operating system must
-provide an implementation of this API.
-
-The Mimiker operating system implements the POSIX API, but the implementation is
-far from complete. This allows us to use existing programs using the POSIX API
-like shells, command line utilities and text editors.
-
 \section{POSIX Job Control}
-
-\subsection{Jobs}
-A job consists of one or more processes. The processes are usually connected in
-a pipeline, with each one accepting input from the previous one in the chain,
-and feeding output to the next one.
-
-Jobs are purely a shell concept: they are implemented entirely in the shell,
-and the operating system has no knowledge of them. However, there is a close
-correspondence between shell jobs and process groups, which are implemented by
-the operating system. The shell puts different jobs in different process groups.
 
 \section{POSIX Terminals}
 On the surface, a terminal device is no different than a standard characters
