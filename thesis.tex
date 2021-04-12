@@ -96,7 +96,8 @@ to it.
 
 In the beginning, terminals were electromechanical teletypewriters
 (teletypes, or TTYs for short), initially used in telegraphy. A teletype
-sends data typed on the keyboard to the computer, and prints the response.
+sends data typed on the keyboard to the computer, and prints the response on a
+piece of paper.
 
 In the 1970, video terminals came into widespread use. A video terminal displays
 output on a screen instead of printing it. Most models provide a set of special
@@ -127,7 +128,7 @@ the emulated terminal is presented in the emulator's GUI window. The emulator
 translates the user's keystrokes into characters and feeds them as input to the
 application running inside the emulator. Output from the application is
 displayed in the GUI window in the same way it would be displayed on a real
-video terminal's screen. \texttt{xterm} is an example of a terminal emulator.
+video terminal's screen. \Verb{xterm} is an example of a terminal emulator.
 
 Another area where terminal-based interfaces are still used is communication
 over limited bandwidth connections, such as a Universal Asynchronous
@@ -176,7 +177,7 @@ concepts:
   a process group at once;
 \item \textit{Sessions}, which connect all the processes that are run by a user
   between logging in and logging out of the system;
-\item \textit{Job control signals} like \texttt{SIGSTOP} and \texttt{SIGCONT},
+\item \textit{Job control signals} like \Verb{SIGSTOP} and \Verb{SIGCONT},
   which allow for stopping and continuing individual processes;
 \item \textit{Background and foreground process groups}, which determine the
   processes that are allowed to receive user input and write output to the
@@ -192,6 +193,7 @@ operating system.
 \section{Process groups and sessions}
 
 \subsection{POSIX process groups and sessions}
+\label{chap:posix-groups-sessions}
 
 \subsubsection{POSIX process groups}
 
@@ -339,7 +341,7 @@ typedef struct pgrp {
   pgid_t pg_id;
 } pgrp_t;
 \end{minted}
-\caption{\texttt{include/sys/proc.h}: definition of \Verb{pgrp_t}.}
+\caption{\Verb{include/sys/proc.h}: definition of \Verb{pgrp_t}.}
 \label{lst:pgrp}
 \end{listing}
 
@@ -580,6 +582,7 @@ static void pgrp_jobc_leave(proc_t *p, pgrp_t *pg) {
 \end{listing}
 
 \subsection{Sessions in the Mimiker kernel}
+\label{chap:sessions}
 
 We will now examine the implementation of sessions in the Mimiker kernel. After
 looking at the session data structure, we will see how new sessions are created.
@@ -689,21 +692,21 @@ similar to those found in the original UNIX operating system
 
 A \textit{synchronous signal} is sent as a direct consequence of some (usually
 erroneous) action being performed by the receiving process. For instance, a
-process is sent a \texttt{SIGSEGV} signal upon trying to access an invalid
+process is sent a \Verb{SIGSEGV} signal upon trying to access an invalid
 memory location.
 
 An \textit{asynchronous signal} is sent independently of the actions of the
 receiving process, and may be received at any time. For example, whenever a
-process terminates, the system sends a \texttt{SIGCHLD} signal to its parent.
+process terminates, the system sends a \Verb{SIGCHLD} signal to its parent.
 
 Signals can be sent by the operating system in response to certain events (e.g.
-process termination), or by other processes, using the \texttt{kill()} function
-\cite{kill}. A process can send a signal to itself using the \texttt{raise()}
+process termination), or by other processes, using the \Verb{kill()} function
+\cite{kill}. A process can send a signal to itself using the \Verb{raise()}
 function. As a shorthand, we shall say that a signal is sent to a process
 group when it's sent to every process that is a member of the group.
 
-The type of signal (\texttt{SIGSEGV}, \texttt{SIGCHLD}, etc.) is determined by
-the \textit{signal number}. In fact, \texttt{SIGSEGV} and others are \textit{C
+The type of signal (\Verb{SIGSEGV}, \Verb{SIGCHLD}, etc.) is determined by
+the \textit{signal number}. In fact, \Verb{SIGSEGV} and others are \textit{C
   preprocessor macros} that expand to unique signal numbers.
 
 Processes can take different actions in response to signals with different
@@ -714,7 +717,7 @@ response to a signal:
 \item Take the default action for that signal number.
   
   Every signal number has an associated default action. For instance, the
-  default action of the \texttt{SIGSEGV} signal is to immediately terminate the
+  default action of the \Verb{SIGSEGV} signal is to immediately terminate the
   receiving process.
 \item Ignore the signal.
 \item Invoke a \textit{signal handler routine}.
@@ -724,8 +727,8 @@ response to a signal:
 \end{enumerate}
 
 The mapping of signal numbers to signal actions is controlled using the
-\texttt{sigaction()} function \cite{sigaction}. Not every signal can have its
-action modified: \texttt{SIGKILL} and \texttt{SIGSTOP} cannot have their actions
+\Verb{sigaction()} function \cite{sigaction}. Not every signal can have its
+action modified: \Verb{SIGKILL} and \Verb{SIGSTOP} cannot have their actions
 changed from the default one, which is to terminate or stop the receiving process,
 respectively.
 
@@ -738,8 +741,8 @@ unblocked. Contrary to signals that are ignored, blocked signals await delivery
 instead of being discarded.
 
 The \textit{signal mask} determines the set of blocked signals for a thread. It
-can be examined and modified using the \texttt{sigprocmask()} function
-\cite{sigprocmask}. Unsurprisingly, the \texttt{SIGKILL} and \texttt{SIGSTOP}
+can be examined and modified using the \Verb{sigprocmask()} function
+\cite{sigprocmask}. Unsurprisingly, the \Verb{SIGKILL} and \Verb{SIGSTOP}
 signals cannot be blocked from being delivered.
 
 \subsection{Signals used for job control}
@@ -748,57 +751,57 @@ signals cannot be blocked from being delivered.
 The following signals are most commonly used to control jobs on POSIX-compliant
 operating systems:
 \begin{itemize}
-\item \texttt{SIGINT}
+\item \Verb{SIGINT}
 
   Sent by the operating system in response to the special
-  character \texttt{VINTR} being received on the terminal. Its purpose is to
+  character \Verb{VINTR} being received on the terminal. Its purpose is to
   signal interruption by the user. A process that receives this signal is
   usually expected to terminate shortly. The default action associated with this
   signal is to terminate the receiving process.
 
-\item \texttt{SIGQUIT}
+\item \Verb{SIGQUIT}
 
-  Similar to \texttt{SIGINT}, except it is sent in response to the
-  \texttt{VQUIT} character, and the default action additionally generates a core
+  Similar to \Verb{SIGINT}, except it is sent in response to the
+  \Verb{VQUIT} character, and the default action additionally generates a core
   dump of the receiving process.
 
-\item \texttt{SIGTTOU}
+\item \Verb{SIGTTOU}
 
   Sent by the operating system whenever a background job attempts to write to
-  the terminal, provided the \texttt{TOSTOP} terminal flag is set (more on
+  the terminal, provided the \Verb{TOSTOP} terminal flag is set (more on
   terminal flags later). The default action associated with this signal is to
   stop the receiving process.
   
-\item \texttt{SIGTTIN}
+\item \Verb{SIGTTIN}
 
   Sent by the operating system whenever a background job attempts to read from
   the terminal. Background jobs may not read from the terminal, regardless of
   the terminal settings. The default action associated with this signal is to
   stop the receiving process.
 
-\item \texttt{SIGTSTP}
+\item \Verb{SIGTSTP}
 
   Sent by the operating system in response to the special character
-  \texttt{VSUSP} being received on the terminal. Its purpose is to stop the
+  \Verb{VSUSP} being received on the terminal. Its purpose is to stop the
   foreground job. Well-behaving processes should not ignore this signal. Many
   programs need to do some cleanup before stopping: in that case, they register
   a handler that does the necessary cleanup, after which it performs
-  \texttt{raise(SIGSTOP)}. The default action associated with this signal is to
+  \Verb{raise(SIGSTOP)}. The default action associated with this signal is to
   stop the receiving process.
 
-\item \texttt{SIGSTOP}
+\item \Verb{SIGSTOP}
 
   This signal is not sent by the operating system. It unconditionally stops the
   receiving process. It cannot be blocked or ignored. 
 
-\item \texttt{SIGCONT}
+\item \Verb{SIGCONT}
 
   This is the only signal that can resume a stopped process (apart from
-  \texttt{SIGKILL}, which resumes it only to immediately terminate it). It is
+  \Verb{SIGKILL}, which resumes it only to immediately terminate it). It is
   usually sent by the shell, e.g. when a background job that was stopped by a
-  \texttt{SIGTTIN} signal is brought into the foreground.
+  \Verb{SIGTTIN} signal is brought into the foreground.
 
-\item \texttt{SIGCHLD}
+\item \Verb{SIGCHLD}
 
   Sent by the operating system in response to the termination of a process. The
   signal is sent to the parent of the terminating process. Shells use this
@@ -834,7 +837,7 @@ typedef struct sigaction {
   int sa_flags;
 } sigaction_t;
 \end{minted}
-\caption{\texttt{include/sys/signal.h}: definition of \Verb{sigaction_t}.}
+\caption{\Verb{include/sys/signal.h}: definition of \Verb{sigaction_t}.}
 \end{listing}
 
 The \Verb{sa_handler} and \Verb{sa_sigaction} fields are
@@ -1215,8 +1218,8 @@ The primary way of controlling a computer over a terminal connection
  is using a
 \textit{shell}. A shell is a program that executes commands typed by the user.
 The purpose of most commands is to run a specified program with a given set of
-arguments. For example, the command \texttt{ls -l} instructs the shell to find a
-program named \texttt{ls} and run it with a single argument \texttt{-l}.
+arguments. For example, the command \Verb{ls -l} instructs the shell to find a
+program named \Verb{ls} and run it with a single argument \Verb{-l}.
 The executed program will then run to completion. It may accept further input
 from the user and write output. The shell waits for the program to finish, after
 which it is ready to accept more commands from the user.
@@ -1236,22 +1239,110 @@ group related programs into jobs.
 
 \chapter{The Terminal Subsystem}
 
-TODO Zrobić coś z tym i POSIX Job Control
-\section{POSIX Job Control}
+The implementation of the terminal subsystem in the Mimiker kernel consists of
+three primary components:
+\begin{itemize}
+\item The terminal device layer;
+\item The UART terminal driver;
+\item The \textit{pseudoterminal} subsystem, which includes another terminal
+  driver.
+\end{itemize}
 
-\section{POSIX Terminals}
-On the surface, a terminal device is no different than a standard characters
-device: a process can open it using \texttt{open()} and then perform input and
-output using \texttt{read()} and \texttt{write()} respectively.
-The terminal interface specified by POSIX is much richer than that. Terminal
-devices play a significant role in job control, and therefore are connected to
-the concepts of process groups and sessions.
+In this chapter, we will describe each component in detail. Before describing
+the implementation, we will present relevant parts of the POSIX specification.
 
-\subsection{Controlling terminals}
-A terminal device may be the controlling terminal of a session. A session may
-have at most one controlling terminal, and a terminal device may be the controlling
-terminal of at most one session. A process can always access its controlling
-terminal (if it has one) by opening the \texttt{/dev/tty} device file.
+\section{Terminal devices}
+
+% This should go in the first chapter, introducing the concept of terminals.
+
+The following discussion concentrates on terminal devices as a concept inside
+the kernel, not hardware terminal devices.
+
+A terminal device in the kernel represents an abstract hardware terminal. The
+terminal being represented may or may not be an actual hardware device: a
+terminal can be emulated in software using a \textit{terminal emulator}, which
+uses pseudoterminals under the hood. In fact, hardware terminals are now used
+very rarely, and terminal emulators are the most common use case for terminals
+on desktop systems.
+
+Terminal devices provide a layer of processing between processes and raw serial
+devices. This processing might seem unnecessary at first, but its usefulness
+very quickly becomes apparent.
+
+For example, on UNIX-like systems a long-running command can be interrupted by
+pressing the Control-C combination of keys on the keyboard. If there was no
+processing done on incoming characters by the operating system, the process in
+question would simply receive the character as input, and it would be up to the
+process to respond to it. The process would need to be prepared to receive such
+characters at any time. This is clearly an inconvenience, especially for simple
+programs.
+
+With the processing done by the operating system, the behavior is uniform and
+requires less effort from writers of userspace programs. The interruption is
+delivered as a signal, for which a handler can be easily installed.
+
+The preceding example illustrates just one useful feature of terminal devices. 
+The POSIX specification includes the concept of terminals, and describes how
+incoming and outgoing characters should be processed by the terminal subsystem. 
+We will now present the most important aspects of this specification.
+
+% While physical terminal devices are no longer in common use, many users of
+% UNIX-like prefer to use the command line for certain tasks. The command line, or
+% more precisely, the \textit{shell}, makes use of certain feature
+
+A very detailed description of the terminal interfaces available in several
+UNIX-like operating systems, which goes well beyond POSIX, is presented in
+\cite[Chapter~18]{apue}. For a Linux-specific discussion, see
+\cite[Chapter~62]{tlpi}.
+
+\subsection{POSIX terminals}
+
+On the surface, a terminal device is no different than a standard character
+device. To interact with it, a process can open the corresponding device file
+using \Verb{open()} and then perform input and output using \Verb{read()} and
+\Verb{write()} respectively. The terminal interface specified by POSIX is much
+richer than that. Terminal devices play a significant role in job control, and
+therefore are connected to the concepts of process groups and sessions. We will
+now examine the most important aspects of the terminal device specification
+\cite{terminal-spec} found in POSIX and see how terminal devices tie into job
+control.
+
+\subsubsection{Terminal input and output}
+
+Data coming in from the hardware terminal device is processed according to the
+terminal mode and flags, which will be described in a subsequent section, after
+which it is buffered in the \textit{input queue}. Processes calling
+\Verb{read()} on a terminal file descriptor receive data from the input queue.
+
+When a process writes data to a terminal file descriptor using \Verb{write()},
+after processing, the data may be written directly to the underlying hardware
+device, or it may be buffered by the OS in the terminal's \textit{output queue}
+and output asynchronously relative to the \Verb{write()} call. Most operating
+systems choose the latter approach, and the same choice is made in the Mimiker
+kernel.
+
+Processes performing output are not the only source of characters for the
+terminal's output queue: if the \Verb{ECHO} terminal flag is set, characters
+arriving from the hardware device are automatically copied (i.e. ``echoed'') to
+the output queue. This is very useful, e.g. in the case of a shell, where the
+user should see the command they are typing. The high-level flow of data between
+processes and terminal devices is shown in figure \ref{fig:term-hilevel}.
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=\textwidth, keepaspectratio]{img/term-hilevel}
+  \caption{A high-level overview of terminal data flow, based on \cite[Figure~62-1]{tlpi}}
+  \label{fig:term-hilevel}
+\end{figure}
+
+\subsubsection{Controlling terminals}
+
+A terminal device may be designated as the controlling terminal of a session. A
+session may have at most one controlling terminal, and a terminal device may be
+the controlling terminal of at most one session. A process can always access its
+controlling terminal (if it has one) by opening the \Verb{/dev/tty} device file.
+We define the controlling terminal of a process to be simply the controlling
+terminal of that process's session.
 
 When a session is created, it has no controlling terminal. The session leader is
 responsible for setting and changing the controlling terminal device, although
@@ -1261,58 +1352,76 @@ When the leader of a session terminates, the controlling terminal (if any) is
 dissociated from the session. Any processes left in the session may have their
 access to the controlling terminal revoked. If a controlling terminal device
 disappears from the system, the leader of the associated session is sent a
-\texttt{SIGHUP} signal.
+\Verb{SIGHUP} signal.
 
-\subsection{Foreground process groups}
-Access to the controlling terminal by processes can be controlled using
+\subsubsection{Foreground process groups}
+
+Access to the controlling terminal of processes can be controlled using
 foreground and background process groups.
 
-At any time, a process group can be designated as the foreground process group
-of its session's controlling terminal. All other process groups in the session
-are background process groups. The foreground process group of a terminal can be
-set using the \texttt{tcsetpgrp()}\cite{tcsetpgrp} function. Any process can set
-the foreground process group of its controlling terminal, although some
-restrictions apply to processes from background process groups. A controlling
-terminal does not need to have a foreground process group at all times.
+A process group may be designated as the foreground process group of its
+session's controlling terminal. All other process groups in the session are
+background process groups. The foreground process group of a terminal can be set
+using the \Verb{tcsetpgrp()}\cite{tcsetpgrp} function. Any process can set the
+foreground process group of its controlling terminal, although some restrictions
+apply to processes from background process groups. A controlling terminal does
+not need to have a foreground process group at all times.
 
-Processes in the foreground process group are allowed to \texttt{read()} and
-\texttt{write()} to their controlling terminal. When a process in a background
-process group attempts to \texttt{read()} or \texttt{write()} to its controlling
-terminal, every process in its process group is sent a \texttt{SIGTTIN} or
-\texttt{SIGTTOU} signal respectively. The default effect of both signals is to
-stop the target process. In the case of \texttt{write()}, the signal is sent
-only if the \texttt{TOSTOP} terminal flag is set. If it is not set, background
+Processes in the foreground process group are allowed to \Verb{read()} and
+\Verb{write()} to their controlling terminal. When a process in a background
+process group attempts to \Verb{read()} or \Verb{write()} to its controlling
+terminal, every process in its process group is sent a \Verb{SIGTTIN} or
+\Verb{SIGTTOU} signal respectively. The default effect of both signals is to
+stop the target process. In the case of \Verb{write()}, the signal is sent
+only if the \Verb{TOSTOP} terminal flag is set. If it is not set, background
 processes can write to their controlling terminal without restrictions. The
-exact semantics are a bit more nuanced, see \cite{terminal-access}.
+exact semantics are a bit more nuanced, see \cite[Section~11.1.4]{terminal-spec}.
 
-When a shell is accepting input from the user, its process is necessarily in the
-foreground process group. When the shell starts a job, the job is usually put in
-the foreground, so that the user can interact with it. The shell waits for the
-foreground job to complete, and then makes its own process group the foreground
-process group, so that it can accept the next command.
+As a concrete example, when a shell is accepting input from the user, its
+process is necessarily in the foreground process group. When the shell starts a
+job, the job is usually put in the foreground, so that the user can interact
+with it. The shell waits for the foreground job to complete, and then makes its
+own process group the foreground process group, so that it can accept the next
+command.
 
-The user may make the job run in the background by appending \texttt{\&} to the
+The user may make the job run in the background by appending \Verb{&} to the
 command. In that case, the shell remains in the foreground process group and
 does not wait for the job to complete. As explained earlier, a background job
 will be stopped if it tries to accept input from the user.
 
-A background job can be put in the foreground using the \texttt{fg} command. The
-command simply sets the controlling terminal's foreground process group to the
-process group of the target job, continues the target job if it was stopped, and
-waits for the foreground job's termination.
+A background job can be put in the foreground using the \Verb{fg} shell command.
+The command simply sets the controlling terminal's foreground process group to
+the process group of the target job, continues the target job if it was stopped,
+and waits for the new foreground job's termination.
 
-\subsection{Terminal modes and flags}
+Figure~\ref{fig:proc-hierarchy-tty} presents the process hierarchy from
+figure~\ref{fig:proc-hierarchy}, but now it includes the concepts of controlling
+terminals and foreground process groups.
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=\textwidth, keepaspectratio]{img/proc-hierarchy-tty}
+  \caption{Proces hierarchy from figure~\ref{fig:proc-hierarchy} with
+    controlling terminals and foreground process groups included. Note that
+    sessions 1 and 2 do not have a controlling terminal. The terminal device
+    \Verb{/dev/uart} is the controlling terminal of session~3. Process group 6
+    is the controlling terminal's foreground process group. Once process 6
+    terminates, the shell (PID 3) will set the foreground process group to its
+    own process group (PGID 3).}\label{fig:proc-hierarchy-tty}
+\end{figure}
+
+\subsubsection{Terminal modes and flags}\label{chap:terminal-flags}
 
 Command line applications can be roughly divided into two groups, depending on
-how they process user input:
+how they consume user input:
 \begin{itemize}
   \item{One line at a time (\textit{line-oriented});}
   \item{One character at a time (\textit{character-oriented}).}
 \end{itemize}
 
-A shell belongs to the first group. It accepts a whole command at a time. Most
-notably, the user may edit the line before submitting it to the program by
-pressing the return key (labelled ``enter'' on most keyboards).
+A shell belongs to the first group, because it accepts a whole command at a
+time. Most notably, the user may edit the command before submitting it to the
+program by pressing the return key (labelled ``Enter'' on most keyboards).
 
 A text editor belongs to the second group. Each key performs an action within
 the editor, such as moving the cursor or inserting text at the position of the
@@ -1322,113 +1431,133 @@ In serious applications, line-oriented input is usually accomplished using a
 library such as GNU Readline \cite{readline}. However, POSIX mandates that basic
 line-editing functionality is provided by the operating system itself.
 Applications may choose whether they want to use this functionality by choosing
-the \textit{terminal mode}.
+the \textit{terminal mode}. Two terminal modes are distinguished:
+\textit{canonical} and \textit{non-canonical}, the former providing basic line
+editing.
 
-Two terminal modes are distinguished: \textit{canonical} and
-\textit{non-canonical} (often called \textit{raw}). Canonical mode provides
-basic line editing:
+In canonical mode, typed characters are appended to the \textit{line buffer}.
+Characters may be erased from the line buffer by typing the special characters
+\Verb{VERASE} (which erases the character at the end of the buffer) or
+\Verb{VKILL} (which erases the whole buffer). These special characters are
+processed by the operating system and are not forwarded to userspace. Once the
+user types a \textit{line-terminating} character, the contents of the line
+buffer are appended to the input queue and become available as input to
+userspace programs.
+
+In non-canonical mode there is no line buffer, and every non-special character
+typed by the user is immediately available to userspace programs. The
+\Verb{VERASE}, \Verb{VKILL}, and line-terminating characters are no longer
+special to the OS and appear as input on the terminal device.
+
+The terminal mode controls only part of the processing that is performed on
+characters coming in. There are many \textit{terminal flags} that can enable
+additional character processing on input, as well as output. We will now examine
+the data structure that houses almost all terminal settings that can be changed
+by userspace programs.
+
+\subsubsection{The \Verb{termios} structure}
+
+For each terminal device, almost all of its settings, including the terminal
+mode, are stored in a \Verb{termios} structure associated with that terminal.
+The only exception is the terminal window size, which isn't a member of the
+\texttt{termios} structure and is stored separately. Application code may
+examine and modify the contents of this structure using the
+\Verb{tcgetattr()}\cite{tcgetattr} and \Verb{tcsetattr()}\cite{tcsetattr}
+functions respectively.
+
+The \Verb{termios} structure must contain the following fields:
 \begin{itemize}
-  \item{Characters typed by the user are ``echoed'' to the terminal;}
-  \item{Characters may be erased from the line.}
-\end{itemize}
-It also causes certain actions to be taken in response to special
-\textit{control characters} being received.
-
-Character echoing allows the user to see the contents of the line they are
-typing. This is necessary for the user to be able to spot mistakes in their
-input. It is sometimes useful to turn off character echoing, e.g. when the user
-is typing their password.
-
-Characters can be erased from the line by sending certain control characters.
-For instance, the \texttt{VERASE} character erases the character at the end of
-the line, and the \texttt{VKILL} character causes the whole line to be erased.
-
-Raw mode does not perform any processing on characters received from the device.
-It is up to the application to perform tasks like echoing or erasing characters.
-This is exactly what libraries such as GNU Readline do.
-
-\subsubsection{The \texttt{termios} structure}
-
-For each terminal device, all of its settings, including the terminal mode, are
-stored in a \texttt{termios} structure associated with that terminal.
-Application code may examine and modify the contents of this structure using the
-\texttt{tcgetattr()}\cite{tcgetattr} and \texttt{tcsetattr()}\cite{tcsetattr} functions respectively.
-
-The \texttt{termios} structure must contain the following fields:
-\begin{itemize}
-\item \texttt{c\_iflag}: contains bit fields that control basic
-  terminal input handling. Some notable bit fields are:
+\item \Verb{c_iflag}: contains flags that control basic terminal input
+  handling. Some notable flags are:
   \begin{itemize}
-  \item \texttt{ICRNL}: map the \textit{carriage return} (CR) character to the
-    \textit{new line} (NL) character on input.
-  \item \texttt{BRKINT}: send a \texttt{SIGINT} signal to the foreground process
+  \item \Verb{ICRNL}: map the \textit{carriage return} (CR, \Verb{'\r'})
+    character to the \textit{new line} (NL, \Verb{'\n'}) character on input.
+  \item \Verb{BRKINT}: send a \Verb{SIGINT} signal to the foreground process
     group upon detecting a break condition.
-  \item \texttt{IGNBRK}: ignore hardware break conditions.
-  \item \texttt{INPCK}: enable input parity checking.
-  \item \texttt{IGNPAR}: ignore characters with parity errors.
+  \item \Verb{IGNBRK}: ignore hardware break conditions.
+  \item \Verb{INPCK}: enable input parity checking.
+  \item \Verb{IGNPAR}: ignore characters with parity errors.
   \end{itemize}
-\item \texttt{c\_oflag}: contains bit fields that control terminal
-  output processing. Some notable bit fields are:
+\item \Verb{c_oflag}: contains flags that control terminal output processing.
+  Some notable flags are:
   \begin{itemize}
-  \item \texttt{OPOST}: enable output processing.
-  \item \texttt{ONLCR}: map NL to CR-NL sequence on output.
-  \item \texttt{OCRNL}: map CR to NL on output.
-  \item \texttt{ONOCR}: do not output CR characters if the cursor is at column
+  \item \Verb{OPOST}: enable output processing.
+  \item \Verb{ONLCR}: map NL to CR-NL sequence on output.
+  \item \Verb{OCRNL}: map CR to NL on output.
+  \item \Verb{ONOCR}: do not output CR characters if the cursor is at column
     0.
   \end{itemize}
-\item \texttt{c\_cflag}: contains bit fields that control terminal
-  hardware parameters. Some notable bit fields are:
+\item \Verb{c_cflag}: contains flags that control terminal hardware parameters.
+  Some notable flags are:
   \begin{itemize}
-  \item \texttt{CREAD}: enable hardware receiver.
-  \item \texttt{CSIZE}: number of bits transmitted or received per byte (from 5
+  \item \Verb{CREAD}: enable hardware receiver.
+  \item \Verb{CSIZE}: number of bits transmitted or received per byte (from 5
     to 8).
   \end{itemize}
-\item \texttt{c\_lflag}: contains bit fields that control various additional
-  functions. Some notable bit fields are:
+\item \Verb{c_lflag}: contains flags that control various additional functions.
+  Some notable flags are:
   \begin{itemize}
-  \item \texttt{ECHO}: enable character echoing. This flag is cleared when the
+  \item \Verb{ECHO}: enable character echoing. This flag is cleared e.g. when the
     user is typing their password.
-
-  \item \texttt{ICANON}: enable canonical mode.
-  \item \texttt{ISIG}: send signals in response to certain control characters.
-  \item \texttt{TOSTOP}: send \texttt{SIGTTOU} if a background process tries to
+  \item \Verb{ICANON}: enable canonical mode.
+  \item \Verb{ISIG}: send signals in response to certain control characters
+    being received.
+  \item \Verb{TOSTOP}: send \Verb{SIGTTOU} if a background process tries to
     write to the terminal.
   \end{itemize}
-\item \texttt{c\_cc}: array defining control character codes. A control
-  character can be disabled by setting its code to \texttt{\_POSIX\_VDISABLE}.
-  Important control characters include:
+\item \Verb{c_cc}: array defining control character codes. A control character
+  can be disabled by setting its code to \Verb{_POSIX_VDISABLE}. Important
+  control characters include:
   \begin{itemize}
-  \item \texttt{VERASE}: erase the character at the end of the line.
-  \item \texttt{VKILL}: erase the whole line.
-  \item \texttt{VEOF}: marks end of user input.
-  \item \texttt{VINTR}: if the \texttt{ISIG} flag is set, send \texttt{SIGINT}
+  \item \Verb{VERASE}: erase the character at the end of the line.
+  \item \Verb{VKILL}: erase the whole line.
+  \item \Verb{VEOF}: marks the end of input to a program.
+  \item \Verb{VINTR}: if the \Verb{ISIG} flag is set, send \Verb{SIGINT}
     to the foreground process group.
-  \item \texttt{VSUSP}: if the \texttt{ISIG} flag is set, send \texttt{SIGTSTP}
+  \item \Verb{VSUSP}: if the \Verb{ISIG} flag is set, send \Verb{SIGTSTP}
     (terminal stop signal) to the foreground process group.
   \end{itemize}
 \end{itemize}
-For the full specification of the \texttt{termios} structure, see
-\cite{termios}.
+For the full specification of the \Verb{termios} structure, see \cite{termios}.
 
-\chapter{Implementation of POSIX Terminals and Job Control in the Mimiker
-  Operating System}
-\chaptermark{Implementation}
+\subsection{Terminal devices in the Mimiker kernel}\label{chap:mimiker-tty}
 
-This chapter lays out the implementation of POSIX terminals and job control in
-the Mimiker operating system. The discussion focuses on the kernel, as that is
-where the most work had to be done. The relevant kernel data structures and
-functions are described.
+We will now describe the implementation of the terminal device layer in the
+Mimiker kernel.
 
-\section{Job Control}
-\subsection{Jobs}
-Jobs are purely a userspace concept, and are implemented by the shell. The
-Mimiker operating system uses \texttt{ksh}, which is an existing implementation
-of a POSIX compatible shell.
+\subsubsection{Overall design}
 
-\section{Terminals}
+The terminal device layer provides the abstraction of a terminal device to
+userspace processes, as well as to the rest of the kernel. It contains code that
+is independent of the underlying hardware terminal device. In the subsystem
+hierarchy, it sits below the generic file handling layer and above hardware
+terminal device drivers.
 
-The \texttt{tty\_t} structure encapsulates state associated with a single
-terminal device.
+The layer is responsible for character processing, as well as buffering them in
+the input and output queues. It includes a mechanism to notify the hardware
+terminal driver when new characters arrive in the output queue, as well as when
+space becomes available in the input queue.
+
+% TODO diagram prezentujący przepływ sterowania przy pisaniu znaków
+% i czytaniu:
+% Pisanie: proces --(write())--> system call layer
+%                 --(f_write == tty_write())--> terminal layer
+%                 --(tty_notify_out())--> UART terminal driver
+%                 --(uart_putc())--> UART hardware
+%
+% Czytanie: proces --(read())--> system call layer
+%                  --(f_read == tty_read())--> terminal layer: sleep or return
+% Przychodzi znak: UART interrupt --(uart_intr())--> UART terminal driver
+%                  --(tty_input())--> terminal layer --> notify sleeping threads
+%                  about new data
+ 
+
+\subsubsection{Data structures}
+
+\subsubsection*{\Verb{tty_t}}
+
+The \Verb{tty_t} structure encapsulates the hardware-independent state
+associated with a single terminal device.
 
 \begin{listing}[H]
 \begin{minted}{c}
@@ -1436,6 +1565,8 @@ typedef enum {
   TF_WAIT_OUT_LOWAT = 0x1,
   TF_WAIT_DRAIN_OUT = 0x2,
   TF_OUT_BUSY = 0x4,
+  TF_IN_HIWAT = 0x8,
+  TF_DRIVER_DETACHED = 0x10
 } tty_flags_t;
 
 typedef struct tty {
@@ -1451,157 +1582,267 @@ typedef struct tty {
   condvar_t t_serialize_cv;
   ttyops_t t_ops;
   struct termios t_termios;
+  struct winsize t_winsize;
   pgrp_t *t_pgrp;
   session_t *t_session;
   vnode_t *t_vnode;
+  uint32_t t_opencount;
   void *t_data;
 } tty_t;
 \end{minted}
-\caption{\texttt{include/sys/tty.h}: definition of \texttt{tty\_t}.}
+\caption{\Verb{include/sys/tty.h}: definition of \Verb{tty_t}.}
 \end{listing}
-The \texttt{t\_lock} mutex synchronizes access to the structure.
-\texttt{t\_flags} may contain the following flags:
+
+The \Verb{t_lock} mutex synchronizes access to the structure.
+\Verb{t_flags} may contain the following flags:
 \begin{itemize}
-\item \texttt{TF\_WAIT\_OUT\_LOWAT}: a thread is waiting for space to become
+\item \Verb{TF_WAIT_OUT_LOWAT}: a thread is waiting for space to become
   available in the output queue;
-\item \texttt{TF\_WAIT\_DRAIN\_OUT}: a thread is waiting for the output queue to
+\item \Verb{TF_WAIT_DRAIN_OUT}: a thread is waiting for the output queue to
   become empty;
-\item \texttt{TF\_OUT\_BUSY}: a thread is currently writing to this terminal.
-  This flag is used to serialize \texttt{write()} calls on a terminal device.
+\item \Verb{TF_OUT_BUSY}: a thread is currently writing to this terminal.
+  This flag is used to serialize \Verb{write()} calls on a terminal device.
+\item \Verb{TF_IN_HIWAT}: the \textit{input high watermark} has been reached.
+  Once space becomes available in the input queue, the hardware terminal driver
+  will be notified.
+\item \Verb{TF_DRIVER_DETACHED}: the hardware terminal driver detached from this
+  terminal, usually because the device is no longer available. Any further I/O
+  on this terminal should return an error.
 \end{itemize}
 
-\texttt{t\_inq} is a ring buffer storing input coming from the terminal device.
-\texttt{read()} calls on the terminal device file receive characters from this
-buffer. \texttt{t\_incv} is a condition variable used to wait for input to
-become available in \texttt{t\_inq}.
+\Verb{t_inq} is a ring buffer storing input coming from the hardware terminal
+driver. \Verb{read()} calls on the terminal file descriptor receive characters
+from this buffer. \Verb{t_incv} is a condition variable used to wait for input
+to become available in \Verb{t_inq}.
 
-\texttt{t\_outq} is a ring buffer storing output from processes. The terminal
-device driver reads characters from this buffer and takes care of transmitting
-them. \texttt{t\_outcv} is a condition variable used to wait for space to become
-available in the output queue or for the queue to become empty.
+\Verb{t_outq} is a ring buffer storing characters that should be written out by
+the underlying driver. The characters can come from processes writing to the
+terminal, or from the input processing stage, where characters can be echoed.
+The terminal device driver reads characters from this buffer and takes care of
+transmitting them. \Verb{t_outcv} is a condition variable used to wait for space
+to become available in the output queue or for the queue to become empty.
 
-\texttt{t\_line} stores the contents of the line the user is typing in canonical
+\Verb{t_line} stores the contents of the line the user is typing in canonical
 mode. Its contents can be edited by the user. Once the user submits the line,
-its contents are copied into \texttt{t\_inq}. The contents if \texttt{t\_inq}
-cannot be changed. In raw mode, \texttt{t\_line} is not used.
+its contents are copied into \Verb{t_inq}. The contents of \Verb{t_inq}
+cannot be changed. In non-canonical mode, \Verb{t_line} is not used.
 
-\texttt{t\_column} keeps track of the position of the terminal cursor. It is
-needed to support the \texttt{ONOCR} terminal flag, which forbids sending the
+\Verb{t_column} keeps track of the position of the terminal cursor. It is
+needed to support the \Verb{ONOCR} terminal flag, which forbids sending the
 carriage return character when the cursor is at column 0.
 
-The \texttt{t\_rocol} and \texttt{t\_rocount} fields are needed due to the fact
-that the echoed line can be interleaved with output from processes, and we only
-want to let the user erase the characters they typed, not ones output by
-processes. The two fields keep track of the longest prefix of the line that is
-not interrupted by output from processes.
+The \Verb{t_rocol} and \Verb{t_rocount} fields are needed due to the fact that
+the echoed line being typed in by the user can be interleaved with output from
+processes, and we only want to let the user erase the characters they typed, not
+ones output by processes. The two fields keep track of the longest prefix of the
+line that is not interrupted by output from processes.
 
-The \texttt{t\_serialize\_cv} condition variable is used by processes calling
-\texttt{write()} to wait for their turn to access the terminal.
+The \Verb{t_serialize_cv} condition variable is used by processes calling
+\Verb{write()} to wait for their turn to access the terminal.
 
-\texttt{t\_ops} is a structure containing implementations of terminal device
-driver operations. Currently, only one operation is provided by device drivers:
-
+\Verb{t_ops} is a structure containing implementations of terminal device
+driver operations. There are currently four operations that a driver can supply,
+but only one is required:
 \begin{listing}[H]
 \begin{minted}{c}
 typedef void (*t_notify_out_t)(struct tty *);
+typedef void (*t_notify_in_t)(struct tty *);
+typedef void (*t_notify_active_t)(struct tty *);
+typedef void (*t_notify_inactive_t)(struct tty *);
 
 typedef struct {
   t_notify_out_t t_notify_out;
+  t_notify_in_t t_notify_in;
+  t_notify_active_t t_notify_active;
+  t_notify_inactive_t t_notify_inactive;
 } ttyops_t;
 \end{minted}
-\caption{\texttt{include/sys/tty.h}: definition of \texttt{ttyops\_t}.}
+\caption{\Verb{include/sys/tty.h}: definition of \Verb{ttyops_t}.}
 \end{listing}
-The \texttt{t\_notify\_out} operation notifies the device driver that new data
-has appeared in the terminal structure's output buffer. The driver should ensure
-that data from the buffer is written out to the device as soon as possible.
+The \Verb{t_notify_out} function notifies the device driver that new data has
+appeared in the terminal structure's output queue (i.e. \Verb{t_outq}). The
+driver should ensure that data from the queue is written out to the device as
+soon as possible. It is the only required function.
 
-\texttt{t\_termios} stores the terminal configuration described in the previous
-chapter.
+The \Verb{t_notify_in} function notifies the device driver that space has become
+available in the input queue (i.e. \Verb{t_inq}).
 
-\texttt{t\_pgrp} points to the foreground process group, if any.
+The \Verb{t_notify_active} function is called when the number of open file
+descriptors for the terminal increases from 0 to 1. Predictably,
+\Verb{t_notify_inactive} is called when the number of open file descriptors
+drops from 1 to 0.
 
-\texttt{t\_session} points to the session controlled by this terminal.
+The terminal configuration described in the previous section is stored in the
+\Verb{t_termios} field. The terminal window size is stored separately in the
+\Verb{t_winsize} field. The \Verb{t_pgrp} field points to the foreground process
+group, if any, while \Verb{t_session} points to the session controlled by this
+terminal.
 
-\texttt{t\_vnode} points to the filesystem node representing the terminal
-device. It is used to implement the \texttt{/dev/tty} device file, which refers
-different devices for processes in different sessions.
+\Verb{t_vnode} points to the filesystem node representing the terminal
+device. It is used to implement the \Verb{/dev/tty} device file, which refers
+different devices for processes in different sessions. The \Verb{t_opencount}
+field keeps track of the number of open file descriptors for the terminal.
 
-\texttt{t\_data} is an opaque pointer for the device driver to store its private
-data.
+\Verb{t_data} is an opaque pointer for the underlying hardware terminal device
+driver to store its private data.
 
-\subsection{Creating a terminal device}
+\subsubsection{Lifecycle of a terminal device}
 
-When a serial device driver attaches to a device, it is responsible for creating
-its corresponding terminal device. This involves allocating a new \texttt{tty}
-structure, setting device-specific fields in that structure (e.g.
-\texttt{t\_ops}) and creating a terminal device node in the \texttt{/dev}
+When a terminal device driver attaches to a device, it is responsible for
+creating its corresponding kernel terminal device. This involves allocating a
+new \Verb{tty_t} structure, setting device-specific fields in that structure
+(e.g. \Verb{t_ops}) and creating a terminal device node in the \Verb{/dev}
 directory of the filesystem.
 
-When creating the file, the driver supplies \texttt{tty\_fileops} as the
-implementation of file operations. This way, \texttt{read()} and
-\texttt{write()} (and other) calls on the file are directed to the TTY
-subsystem, which may in turn call the serial device driver via \texttt{t\_ops}.
+The \Verb{tty_makedev()} function takes care of creating the device filesystem
+node. When creating the file, the function supplies \Verb{tty_fileops} to the
+file-handling layer as the implementation of file operations. This way,
+\Verb{read()} and \Verb{write()} (and other) calls on the file are directed to
+the terminal layer, which may in turn call the terminal device driver via
+\Verb{t_ops}.
 
-In the current implementation, which aims for simplicity, terminal devices live
-forever. Once a terminal file is created, it never goes away.
+Once a terminal device is created and visible in the filesystem, processes can
+open and perform I/O on the device.
 
-\subsection{Terminal input}
+The process of deleting a terminal device begins when the driver detects that
+the underlying hardware device is no longer available (e.g. due to a modem
+disconnect). The driver then \textit{detaches} itself from the in-kernel
+terminal device structure. After that happens, processes are no longer able open
+or perform I/O on the terminal device file. Once the last open file descriptor
+referencing the terminal is closed, the terminal structure's memory is returned
+to the kernel.
 
-Processes read data from a terminal by invoking \texttt{read()} on an open
-terminal file descriptor. The terminal subsystem implements this operation in
-the \texttt{tty\_read()} function.
+\subsubsection{Terminal input}
 
-As mandated by POSIX, the function first checks whether the calling process is
-in the foreground process of its controlling terminal, if it has one. If it is,
-the process may proceed. Otherwise, the process group of the calling process is
-sent a \texttt{SIGTTIN} signal, which will stop the process until it is
-resumed by a \texttt{SIGCONT} signal, most likely sent by the shell. The read
-will then be attempted again.
+Processes read data from a terminal by invoking \Verb{read()} on an open
+terminal file descriptor. The generic file-handling layer in the kernel then
+uses the \Verb{fo_read} function pointer in the structure representing the open
+file to call the appropriate function for that particular type of file. In the
+case of terminal device files, the \Verb{fo_read} function pointer is set to the
+\Verb{tty_read()} function.
 
-After passing the check, the process checks whether there are characters
-available in the terminal's input buffer. If it is empty, the process goes to
-sleep on the \texttt{t\_incv} condition variable. The process will be woken up
-once there is data in the buffer.
+The \Verb{tty_read()} function does very little besides calling
+\Verb{tty_do_read()}, which does the actual work of reading characters from the
+input queue. Its very slightly simplified source code is presented in
+listing~\ref{lst:tty-do-read}.
 
-If the input buffer contains characters, the process copies them into the
-userspace buffer supplied as an argument to \texttt{read()}. In canonical mode,
-care must be taken not to read more than a single line. If a line-terminating
-character is read from the buffer, no further characters are copied, but the
-line-terminating character is (with the exception of the special character
-\texttt{VEOF}).
+\begin{listing}[H]
+\begin{minted}{c}
+static int tty_do_read(file_t *f, uio_t *uio) {
+  tty_t *tty = f->f_data;
+  int error = 0;
+  uint8_t c;
 
-We have covered how characters find their way from the terminal input buffer to
+  WITH_MTX_LOCK (&tty->t_lock) {
+@\llabel{f1}@    if (tty_detached(tty))
+      return ENXIO;
+
+    while (true) {
+@\llabel{f2}@      if ((error = tty_check_background(tty, SIGTTIN)))
+        return error;
+@\llabel{f3}@      if (tty->t_inq.count > 0)
+        break;
+@\llabel{f4}@      if ((error = tty_wait(tty, &tty->t_incv)))
+        return error;
+    }
+
+    if (tty->t_lflag & ICANON) {
+      /* In canonical mode, read as many characters as possible,
+       * but no more than one line. */
+      while (ringbuf_getb(&tty->t_inq, &c)) {
+@\llabel{f5}@        if (CCEQ(tty->t_cc[VEOF], c))
+          break;
+        if ((error = uiomove(&c, 1, uio)))
+          break;
+@\llabel{f6}@        if (uio->uio_resid == 0)
+          break;
+        /* Check for end of line. */
+@\llabel{f7}@        if (tty_is_break(tty, c))
+          break;
+      }
+    } else {
+@\llabel{f8}@      ringbuf_getb(&tty->t_inq, &c);
+      error = uiomove(&c, 1, uio);
+    }
+
+@\llabel{f9}@    tty_check_in_lowat(tty);
+  }
+
+  return error;
+}
+\end{minted}
+\caption{\Verb{kern/tty.c}: simplified definition of \Verb{tty_do_read()}.}
+\label{lst:tty-do-read}
+\end{listing}
+
+The \Verb{f} parameter points to a \Verb{file_t} structure representing an open
+file. The \Verb{uio} parameter describes the I/O operation and contains a
+pointer to the destination buffer (or buffers).
+
+After acquiring the terminal's mutex, we first \ref{f1} check whether the driver
+has detached from this terminal. If it has, we cannot do any more I/O on it, so
+we return an error. 
+
+The next step is to check whether we are currently allowed to read from the
+terminal. As previously mentioned, processes in background process groups are
+usually not allowed to read from their controlling terminal. The
+\ref{f2} \Verb{tty_check_background()} function determines whether the calling process
+can perform I/O on the given terminal. The \Verb{SIGTTIN} argument specifies
+that we are trying to read from the terminal. If the function determines that we
+are not allowed to continue with the operation, it will return an error code. It
+may also send the specified signal (\Verb{SIGTTIN} in this case) to every
+process in the calling process's process group.
+
+Next, we \ref{f3} check whether the input queue contains any characters. The
+\Verb{read()} system call is blocking (at least by default), so if no data is
+available, the calling thread is put to sleep awaiting data. This is why, if the
+input queue is empty, we go on to \ref{f4} call \Verb{tty_wait()} to wait on the
+\Verb{t_incv} condition variable.
+
+Once the \Verb{tty_wait()} function returns \Verb{0}, we must repeat the checks
+starting from \ref{f2}, since we may no longer be allowed to read from the
+terminal, e.g. because our process group was moved to the background. Repeating
+the check at \ref{f1} is not necessary, since \Verb{tty_wait()} does it for us.
+The loop continues until we find that there are characters in the input queue.
+
+After breaking out of the loop, we need to decide how to read the characters. In
+canonical mode, at most one line can be read in a single \Verb{read()} call. The
+\Verb{VEOF} character behaves like a line terminator, but it is special in that
+it doesn't get passed to userspace. This is why we check for it at \ref{f5},
+before we copy the character read from the input queue to the user buffer. After
+copying the character, we \ref{f6} check whether we have filled the user buffer
+or \ref{f7} whether the character was an ordinary line terminator. In both
+cases, we break out of the read loop.
+
+In non-canonical mode, \ref{f8} exactly one character is read and returned to
+userspace. This behaviour is very different from that specified in POSIX (see
+\cite[Section~11.1.7]{terminal-spec}), but it works for most applications using
+this mode, such as text editors.
+
+Finally, \ref{f9} the \Verb{tty_check_in_lowat()} function will notify the
+driver if the input high watermark had been previously reached and the number of
+characters in the input queue has dropped below a certain threshold.
+
+We have covered how characters find their way from the terminal input queue to
 the buffer supplied by the reading user process. The question that remains is:
-How are characters written into the input buffer?
+How are characters written into the input queue?
 
-A character's journey through the kernel begins with its reception by the
-serial device. An interrupt-driven device (e.g. a UART) signals the reception of
-a character by asserting its interrupt line, which will eventually lead to
-interrupting the CPU. The CPU will then jump to an \textit{interrupt service
-  routine}, or ISR.
+It is the responsibility of the terminal device driver to pass characters
+arriving at the hardware device to the terminal layer. The driver does this by
+invoking the \Verb{tty_input()} function on the terminal structure, supplying
+the new character. The function takes care of all input processing and putting
+characters into the input queue.
 
-The ISR will execute the serial device driver's code that extracts the character
-from the device registers and inserts it into the serial device's
-\textit{receive buffer}. This buffer is different from the associated terminal's
-input buffer. The driver will then wake up a worker thread that copies
-characters from the receive buffer into the terminal's input buffer.
-
-Characters being copied from the receive buffer must be processed in order to
-take appropriate actions in response to certain control characters being
-received. The degree of processing depends on the state of flags in the
-\texttt{termios} structure. For instance, if the \texttt{ISIG} flag is set, the
-characters \texttt{VINTR}, \texttt{VSUSP} and \texttt{VQUIT} respectively cause
-a \texttt{SIGINT}, \texttt{SIGTSTP} or \texttt{SIGQUIT} signal to be sent to the
-foreground process group of the receiving terminal.
-
-The terminal subsystem provides the \texttt{tty\_input()} function for inserting
-characters into the terminal input buffer. The function accepts a character and
-performs processing on it before appending it to the line buffer or the input
-buffer. Its control flow can be summarized by the following pseudocode:
+Due to the number of terminal flags affecting input processing, the source code
+of the \Verb{tty_input()} function is quite large. For this reason, we will only
+take a look at the function's control flow, with many details omitted for the
+sake of readability.
 
 \begin{listing}[H]
 \begin{minted}{c}
 void tty_input(tty_t *tty, uint8_t c) {
+  handle IGNCR, ICRNL and INLCR flags;
+
   if (ISIG flag is set) {
     /* Signal processing */
     if (c is VINTR or VSUSP or VQUIT) {
@@ -1620,10 +1861,12 @@ void tty_input(tty_t *tty, uint8_t c) {
     insert c into the line buffer;
     
     if (c is a line terminator) {
-      copy the line buffer to the input buffer; 
+      append the line buffer to the input queue; 
+      notify threads waiting on t_incv;
     }
   } else {
-    insert c into the input buffer;
+    insert c into the input queue;
+    notify threads waiting on t_incv;
   }
 
   if (ECHO flag is set) {
@@ -1631,91 +1874,153 @@ void tty_input(tty_t *tty, uint8_t c) {
   }
 }
 \end{minted}
-\caption{\texttt{kern/tty.c}: simplified control flow of \texttt{tty\_input()}.}
+\caption{\Verb{kern/tty.c}: simplified control flow of \Verb{tty_input()}.}
 \end{listing}
 
-The \texttt{tty\_input()} function cannot be called from an ISR, as the function
-uses blocking synchronization primitives, such as mutexes. This is why a worker
-thread is used instead of calling \texttt{tty\_input()} directly from an ISR.
+The \Verb{t_incv} condition variable is used by reading threads to wait for data
+in the input queue. Other than that, the listing is fairly self-explanatory, so
+we won't go into detail describing every step.
 
-\subsection{Terminal output}
+\subsubsection{Terminal output}
 
-Processes write data to a terminal by invoking \texttt{write()} on an open
-terminal file descriptor. The kernel in turn calls \texttt{tty\_write()} to
-carry out the operation.
+Processes write data to a terminal by invoking \Verb{write()} on an open
+terminal file descriptor. The kernel in turn calls \Verb{tty_write()} via the
+\Verb{fo_write} function pointer to carry out the operation.
 
-If the \texttt{TOSTOP} terminal flag is set, a background check similar to the
-one in \texttt{tty\_read()} is performed, with the difference that the signal
-sent to the offending process group is \texttt{SIGTTOU} instead of
-\texttt{SIGTTIN}.
+\begin{listing}[H]
+\begin{minted}{c}
+static int tty_write(file_t *f, uio_t *uio) {
+  tty_t *tty = f->f_data;
+  int error = 0;
 
-After passing the check, the calling process writes the data into the terminal's
-output buffer. If at any point the buffer becomes full, the process goes to
-sleep on the \texttt{t\_outcv} condition variable, waiting for the serial device
-driver to make space in the buffer.
+  WITH_MTX_LOCK (&tty->t_lock) {
+    if (tty_detached(tty))
+      return ENXIO;
 
-After writing data to the output buffer or before going to sleep on
-\texttt{t\_outcv}, the serial device driver is notified of new data. The
-\texttt{tty\_notify\_out()} function calls the \texttt{t\_notify\_out} function
-supplied by the driver. After that point, it is the responsibility of the driver
-to write the characters in \texttt{t\_outq} to the serial device.
+    if (tty->t_lflag & TOSTOP) {
+@\llabel{g1}@      if ((error = tty_check_background(tty, SIGTTOU)))
+        return error;
+    }
 
-Unlike in the case of terminal input, the driver does not need to use an
-intermediate buffer between the terminal's output buffer and the hardware. It
-may simply write all data from the buffer in a single invocation of
-\texttt{t\_notify\_out}. In other words, the driver may output the characters
-\textit{synchronously}. However, that would most likely require busy-waiting for
-the hardware to become ready to accept data, unnecessarily consuming CPU time.
-For this reason, an \textit{asynchronous} approach is taken in the UART driver
-found in the Mimiker kernel.
+@\llabel{g2}@    while (tty->t_flags & TF_OUT_BUSY)
+      if ((error = tty_wait(tty, &tty->t_serialize_cv)))
+        return error;
+    tty->t_flags |= TF_OUT_BUSY;
 
-The driver's implementation of \texttt{t\_notify\_out} copies characters from
-the terminal's output buffer to the \textit{transmit buffer} associated with the
-device. Actual output is performed in the driver's ISR: the hardware signals
-that is ready to accept a character via an interrupt. The ISR then takes one
-character from the transmit buffer and writes it to a hardware register. When
-the transmit buffer runs out of characters, the ISR wakes up a worker thread
-that copies characters from the terminal's output buffer into the transmit
-buffer. The actual implementation doesn't perform output exclusively from the
-ISR, but that is just an optimization.
+    error = tty_do_write(tty, uio);
 
-In the case of asynchronous drivers, the driver is also responsible for waking
-up writers waiting for space in the terminal's output buffer. This is done by
-calling the \texttt{tty\_getc\_done()} function after copying characters from
-the output queue. This function simply checks whether the number of characters
-in the output buffer has fallen below some threshold. If it has, it wakes up all
-waiters waiting on \texttt{t\_outcv}. Similarly to \texttt{tty\_input()}, this
-function cannot be called from an ISR, as it uses blocking synchronization
-primitives.
+    tty->t_flags &= ~TF_OUT_BUSY;
+    cv_signal(&tty->t_serialize_cv);
+  }
 
-\subsection{Controlling terminals}
+  return error;
+}
+\end{minted}
+\caption{\Verb{kern/tty.c}: simplified definition of \Verb{tty_write()}.}
+\label{lst:tty-write}
+\end{listing}
 
-As seen in section \ref{chapter:sessions}, the controlling terminal for a
-session is stored in the \texttt{s\_tty} field of \texttt{session\_t}. When a
-new session is created, its \texttt{s\_tty} field is set to \texttt{NULL}.
+The function's primary role is to \ref{g1} check whether we are allowed to
+perform the operation using \Verb{tty_check_background()} and to serialize calls
+to \Verb{tty_do_write()} by \ref{g2} waiting until the \Verb{TF_OUT_BUSY} flag
+is cleared.
 
-A terminal becomes associated with a session automatically when a session leader
-opens a terminal device file. The association happens only when the session
-doesn't already have a controlling terminal, and the terminal being opened isn't
-associated with any session.
+The \Verb{tty_do_write()} function puts each character in the buffer supplied by
+the process into the output queue using \Verb{tty_output_sleep()}. At the end,
+it notifies the terminal device driver of new data using
+\Verb{tty_notify_out()}.
+
+The \Verb{tty_output_sleep()} function puts characters into the output queue
+using \Verb{tty_output()}, sleeping on the \Verb{t_outcv} condition variable if
+there is no space left. The condition variable is signalled when the driver
+makes enough space available in the output queue. It calls \Verb{tty_output()}
+on each character to process it and insert it into the output queue. Let us take
+a look at the code of \Verb{tty_output()}.
+
+\begin{listing}[H]
+\begin{minted}{c}
+static bool tty_output(tty_t *tty, uint8_t c) {
+  int oflag = tty->t_oflag;
+  if (!(oflag & OPOST)) {
+@\llabel{h1}@    return tty_outq_putc(tty, c);
+  }
+
+  uint8_t cb[2];
+  cb[0] = c;
+@\llabel{h2}@  int ccount = tty_process_out(tty, oflag, cb);
+  int col = tty->t_column;
+
+@\llabel{h3}@  if (!tty_outq_write(tty, cb, ccount))
+    return false;
+
+@\llabel{h4}@  for (int i = 0; i < ccount; i++) {
+    adjust the col variable based on the character class of cb[i];
+  }
+  tty->t_column = col;
+  return true;
+}
+\end{minted}
+\caption{\Verb{kern/tty.c}: simplified definition of \Verb{tty_output()}.}
+\label{lst:tty-write}
+\end{listing}
+
+If the \Verb{OPOST} flag isn't set, we skip all output processing and \ref{h1}
+write the character directly to the output queue. Otherwise, we \ref{h2} call
+\Verb{tty_process_out} to handle \Verb{OCRNL}, \Verb{ONLCR} and \Verb{ONOCR}
+terminal flags. During processing, a single character can be converted into
+multiple characters, which is why we use the \Verb{cb} buffer to store them, and
+\Verb{ccount} is the number of resulting characters after processing.
+
+We then \ref{h3} attempt to write the processed characters to the output queue.
+The call to \Verb{tty_outq_write()} will return \Verb{false} if there isn't
+enough space in the output queue for the characters. If that's the case, we
+return \Verb{false} to indicate failure. 
+
+If we successfully wrote the characters to the output queue, then we need to
+adjust the value of the terminal's \Verb{t_column} field, which keeps track of
+the column number of the terminal cursor. Each character has a \textit{class},
+which determines how it impacts the column number. For instance, the
+\Verb{BACKSPACE} class (which contains only the backspace character \Verb{'\b'})
+decreases the column number by one, unless the column number is already zero.
+We therefore \ref{h4} loop over every character we have written to the output
+queue and adjust the column number based on its class.
+
+Finally, we return \Verb{true} to indicate that we have successfully written the
+characters to the output queue.
+
+After the characters have been written to the output queue and the terminal
+driver has been notified, it is up to the driver to consume characters from the
+queue and transmit them to the hardware device. We will examine how this is done
+in the case of the UART driver in section \ref{chap:tty-uart}. 
+
+\subsubsection{Controlling terminals}
+
+As seen in section \ref{chap:sessions}, the controlling terminal for a
+session is stored in the \Verb{s_tty} field of \Verb{session_t}. When a
+new session is created, its \Verb{s_tty} field is set to \Verb{NULL}.
+
+A terminal becomes the controlling terminal of a session automatically when that
+session's leader opens a terminal device file. The association happens only when
+the session doesn't already have a controlling terminal, and the terminal being
+opened isn't associated with any session.
 
 When the session leader process exits, the session loses its controlling
 terminal. This is the only way a terminal may become dissociated from its
 session.
 
-\subsection{Foreground process groups}
+\subsubsection{Foreground process groups}
 
-The \texttt{t\_pgrp} field in the \texttt{tty\_t} structure points to the
-foreground process group associated with the terminal. Only controlling
-terminals (i.e.\ ones associated with a session) may have a foreground process
-group. When a terminal first becomes associated with a session, its foreground
-process group is set to the process group of the session leader.
+The \Verb{t_pgrp} field in the \Verb{tty_t} structure points to the foreground
+process group associated with the terminal. Only controlling terminals (i.e.\
+ones associated with a session) may have a foreground process group. When a
+terminal first becomes associated with a session, its foreground process group
+is set to the process group of the session leader.
 
-The \texttt{tcgetpgrp()} and \texttt{tcsetpgrp()} functions are provided by the
-standard C library. Their implementations use the \texttt{ioctl()} system call
+The \Verb{tcgetpgrp()} and \Verb{tcsetpgrp()} functions are provided by the
+standard C library. Their implementations use the \Verb{ioctl()} system call
 to perform the required operation.
 
-\texttt{ioctl()} is a very general, catch-all system call that is most commonly
+\Verb{ioctl()} is a very general, catch-all system call that is most commonly
 used to provide functionality that is too simple to merit a separate system
 call. It takes as arguments a file descriptor, an \textit{opcode} (short for
 \textit{operation code}), and a generic argument. The opcode is simply a numeric
@@ -1723,11 +2028,556 @@ value that tells the kernel what operation to perform. The argument's
 interpretation depends on the specific opcode. Most opcodes are only valid for
 file descriptors of a certain type, e.g.\ ones representing open terminal device
 files. The opcodes used for getting and setting the foreground process group are
-\texttt{TIOCGPGRP} and \texttt{TIOCSPGRP} respectively.
+\Verb{TIOCGPGRP} and \Verb{TIOCSPGRP} respectively.
 
-When the foreground process group becomes empty, the terminal's \texttt{t\_pgrp}
-field is set to \texttt{NULL}. Thus, a terminal does not need to have a
+When the foreground process group becomes empty, the terminal's \Verb{t_pgrp}
+field is set to \Verb{NULL}. Thus, a terminal does not need to have a
 foreground process group at all times, even if it is associated with a session.
+
+\section{The UART terminal driver}
+\label{chap:tty-uart}
+
+The terminal layer delegates the task of transmitting characters over the
+hardware device to a \textit{terminal driver}. Currently, the only hardware
+supported by the terminal subsystem is UART, a simple serial link. In this
+section, we will see how the UART driver interacts with the device-independent
+terminal layer.
+
+\subsection{General design}
+
+The driver consists of two main components:
+\begin{itemize}
+\item A \textit{worker thread} that handles data transfers between the driver
+  and the terminal layer;
+\item An \textit{interrupt service routine} (ISR) that responds to hardware events
+  (e.g. a new character being received).
+\end{itemize}
+
+The driver has two internal buffers separate from the terminal layer's input and
+output queues: a \textit{transmit} and \textit{receive buffer}. The transmit
+buffer holds characters taken from the output queue, while the receive buffer
+holds characters waiting to be processed by the \Verb{tty_input()} function.
+
+Actually, the driver does not need to use an intermediate transmit buffer
+between the terminal's output buffer and the hardware. It may simply write all
+data from the buffer in a single invocation of \Verb{t_notify_out}. In other
+words, the driver may output the characters \textit{synchronously}. However,
+that would most likely require busy-waiting for the hardware to become ready to
+accept data, unnecessarily consuming CPU time. For this reason, an
+\textit{asynchronous} approach is taken in this driver.
+
+The worker thread transfers characters from the terminal structure's output
+queue to the transmit buffer, and passes characters from the receive buffer to
+the terminal layer using the \Verb{tty_input()} function.
+
+The interrupt service routine takes characters from the transmit buffer and
+writes them to the appropriate device registers to send them over the UART link.
+It also receives characters directly from the hardware and puts them in the
+receive buffer.
+
+A good question to ask at this point is: do we even need the worker thread?
+Couldn't we instead call \Verb{tty_input()} directly when receiving a character
+in the ISR and output characters to the UART directly (i.e. synchronously) in
+\Verb{t_notify_out}?
+
+The answer is yes, we do need the worker thread. Calling \Verb{tty_input()}
+directly from the ISR would violate the kernel's synchronization rules, as
+\Verb{tty_input()} uses mutexes for synchronization, and mutexes cannot be
+acquired in an ISR, only spinlocks. A thread context is needed to acquire the
+necessary mutex before calling \Verb{tty_input()}. Therefore, even if we
+performed output synchronously, we would still need a worker thread to do the
+input processing.
+
+The flow of data between the terminal layer's queues, the UART driver's buffers
+and the UART device is shown in figure \ref{fig:term-hilevel-uart}.
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=\textwidth, keepaspectratio]{img/term-hilevel-uart}
+  \caption{Data flow between the terminal layer's queues, the UART driver's
+    buffers and the UART device.}
+  \label{fig:term-hilevel-uart}
+\end{figure}
+
+\subsection{Data structures}
+
+\subsubsection*{\Verb{tty_thread_t}}
+
+The \Verb{tty_thread_t} structure represents a worker thread.
+\begin{listing}[H]
+\begin{minted}{c}
+typedef struct tty_thread {
+  thread_t *ttd_thread;
+  tty_t *ttd_tty;
+  condvar_t ttd_cv;
+  uint8_t ttd_flags;
+} tty_thread_t;
+\end{minted}
+\caption{\Verb{include/sys/uart_tty.h}: definition of \Verb{tty_thread_t}.}
+\end{listing}
+
+The \Verb{ttd_thread} field is a pointer to the \Verb{thread_t} structure
+representing the thread. The \Verb{ttd_tty} field is the worker thread's
+assigned terminal. The \Verb{ttd_cv} condition variable is used by the worker
+thread to wait for a signal from the ISR to do some work. The \Verb{ttd_flags}
+field is used to communicate what work needs to be done. It can contain the
+following flags:
+\begin{itemize}
+\item \Verb{TTY_THREAD_TXRDY}: The worker thread should transfer characters from
+  the terminal layer's output queue to the transmit buffer;
+\item \Verb{TTY_THREAD_RXRDY}: The worker thread should transfer characters from
+  the receive buffer to the terminal layer using the \Verb{tty_input()}
+  function;
+\item \Verb{TTY_THREAD_OUTQ_NONEMPTY}: This flag is used as an optimization. It
+  tells the ISR whether it should wake up the worker thread to fill the transmit
+  buffer. If the flag is cleared, then the terminal layer's output queue is
+  empty, so it's unnecessary to wake up the worker to fill the transmit buffer.
+\end{itemize}
+
+\subsubsection*{\Verb{uart_state_t}}
+
+The \Verb{uart_state_t} structure encapsulates the UART driver state associated
+with a single device.
+
+\begin{listing}[H]
+\begin{minted}{c}
+typedef struct uart_state {
+  spin_t u_lock;
+  ringbuf_t u_rx_buf;
+  ringbuf_t u_tx_buf;
+  tty_thread_t u_ttd;
+  void *u_state;
+} uart_state_t;
+\end{minted}
+\caption{\Verb{include/sys/uart.h}: definition of \Verb{uart_state_t}.}
+\end{listing}
+
+The \Verb{u_lock} spinlock protects all fields of the structure, including the
+\Verb{u_ttd} field containing the worker thread and its flags. The receive and
+transmit buffers are in the \Verb{u_rx_buf} and \Verb{u_tx_buf} fields
+respectively. The \Verb{u_state} field holds state specific to the UART hardware
+the driver is handling, such as the locations of device registers.
+
+\subsection{UART terminal driver implementation}
+
+Let us now examine the primary components of the UART terminal driver:
+\begin{itemize}
+\item The driver's implementation of the \Verb{t_notify_out} operation;
+\item The worker thread's main loop;
+\item The hardware interrupt service routine.
+\end{itemize}
+
+\subsubsection{\Verb{uart_tty_notify_out()}}
+
+The \Verb{uart_tty_notify_out()} function is called by the terminal layer
+whenever new characters are inserted to the output queue. The function does very
+little besides calling \Verb{uart_tty_fill_txbuf()}, which transfers characters
+from the output queue to the UART's transmit buffer. Actual output is performed
+in the driver's ISR. 
+
+In theory, we do not need to call \Verb{uart_tty_fill_txbuf()} here. Instead, we
+could signal the worker thread to do the work for us. However, that would incur
+extra overhead due to synchronization and context switching. In order to avoid
+it, we try not to involve the worker in moving characters from the output queue
+to the transmit buffer.
+
+\begin{listing}[H]
+\begin{minted}{c}
+static void uart_tty_fill_txbuf(device_t *dev) {
+  uart_state_t *uart = dev->state;
+  tty_t *tty = uart->u_ttd.ttd_tty;
+  uint8_t byte;
+
+  while (true) {
+    SCOPED_SPIN_LOCK(&uart->u_lock);
+@\llabel{i1}@    uart_tty_try_bypass_txbuf(dev);
+@\llabel{i2}@    if (ringbuf_full(&uart->u_tx_buf) || !ringbuf_getb(&tty->t_outq, &byte)) {
+@\llabel{i3}@      if (!ringbuf_empty(&uart->u_tx_buf))
+        uart_tx_enable(dev);
+@\llabel{i4}@      tty_set_outq_nonempty_flag(&uart->u_ttd);
+      break;
+    }
+@\llabel{i5}@    tty_set_outq_nonempty_flag(&uart->u_ttd);
+@\llabel{i6}@    ringbuf_putb(&uart->u_tx_buf, byte);
+  }
+@\llabel{i7}@  tty_getc_done(tty);
+}
+\end{minted}
+\caption{\Verb{sys/kern/uart_tty.c}: definition of \Verb{uart_tty_fill_txbuf()}.}
+\label{lst:uart-tty-fill-txbuf}
+\end{listing}
+
+The function consists of a loop that moves characters from the \Verb{tty}
+terminal's output queue to the transmit buffer. However, before transferring any
+characters, we \ref{i1} try to bypass the transmit buffer entirely, transmitting
+characters directly from the output queue to the hardware.
+
+The next step is to \ref{i2} check whether the transmit buffer is full or the
+output queue is empty. If neither condition is true, then we can \ref{i6}
+transfer a single character. Before that, we \ref{i5} update the
+\Verb{TTY_THREAD_OUTQ_NONEMPTY} flag. We then return to the beginning of the
+loop.
+
+If either condition at \ref{i2} is true, we can no longer transfer any
+characters. In that case, if there are characters in the transmit buffer, we
+\ref{i3} tell the hardware to send an interrupt whenever it's ready to accept
+data. That way, the ISR will be called and it will move characters from the
+transmit buffer to the hardware. We then \ref{i5} update the
+\Verb{TTY_THREAD_OUTQ_NONEMPTY} flag before breaking out of the loop.
+
+The last step in the function is calling \Verb{tty_getc_done()}. In the case of
+terminal drivers that output characters asynchronously, the driver is
+responsible for waking up threads waiting for space in the terminal's output
+queue. This is done by calling the \Verb{tty_getc_done()} function after moving
+characters from the output queue. This function simply checks whether the number
+of characters in the output buffer has fallen below some threshold. If it has,
+it wakes up all waiters waiting on the \Verb{t_outcv} condition variable.
+
+\subsubsection{The worker thread loop}
+
+The worker thread loop is essential to the operation of the UART driver. It is
+the link connecting the driver's transmit and receive buffers with the terminal
+layer's output and input queues.
+
+\begin{listing}[H]
+\begin{minted}{c}
+static void uart_tty_thread(void *arg) {
+  device_t *dev = arg;
+  uart_state_t *uart = dev->state;
+  tty_thread_t *ttd = &uart->u_ttd;
+  tty_t *tty = ttd->ttd_tty;
+  uint8_t work, byte;
+
+  while (true) {
+    WITH_SPIN_LOCK (&uart->u_lock) {
+      /* Sleep until there's work for us to do. */
+@\llabel{j1}@      while ((work = ttd->ttd_flags & TTY_THREAD_WORK_MASK) == 0)
+        cv_wait(&ttd->ttd_cv, &uart->u_lock);
+      ttd->ttd_flags &= ~TTY_THREAD_WORK_MASK;
+    }
+    WITH_MTX_LOCK (&tty->t_lock) {
+      if (work & TTY_THREAD_RXRDY) {
+@\llabel{j2}@        while (uart_getb_lock(uart, &byte))
+@\llabel{j3}@          if (!tty_input(tty, byte))
+            klog("dropped character %hhx", byte);
+      }
+      if (work & TTY_THREAD_TXRDY)
+@\llabel{j4}@        uart_tty_fill_txbuf(dev);
+    }
+  }
+}
+\end{minted}
+\caption{\Verb{sys/kern/uart_tty.c}: definition of \Verb{uart_tty_thread()}.}
+\end{listing}
+
+The first step in the loop is to \ref{j1} wait until the ISR gives us a signal
+to do some work by setting at least one of the flags contained in
+\Verb{TTY_THREAD_WORK_MASK}, i.e. \Verb{TTY_THREAD_RXRDY} or
+\Verb{TTY_THREAD_TXRDY}.
+
+Once we get a signal, we check what kind of work needs to be done. If
+the \Verb{TTY_THREAD_RXRDY} flag is set, we \ref{j2} read characters from the
+receive buffer and \ref{j3} pass them to the terminal layer using the
+\Verb{tty_input()} function. If the \Verb{TTY_THREAD_TXRDY} flag is set, we
+\ref{j4} move characters from the terminal's output queue to the transmit buffer
+using the \Verb{uart_tty_fill_txbuf()} function.
+
+\subsubsection{The interrupt service routine}
+
+The UART driver's interrupt service routine responds to two kinds of hardware events:
+\begin{itemize}
+\item A character has been received (``RX Ready'');
+\item The hardware is ready to accept a new character (``TX Ready'').
+\end{itemize}
+
+The ISR performs the actual transmission of characters in the transmit buffer.
+The hardware signals that is ready to accept a character via an interrupt. The
+ISR then takes one character from the transmit buffer and writes it to a
+hardware register. When the transmit buffer runs out of characters, the ISR
+wakes up a worker thread that copies characters from the terminal's output
+queue into the transmit buffer.
+
+\begin{listing}[H]
+\begin{minted}{c}
+intr_filter_t uart_intr(void *data) {
+  device_t *dev = data;
+  uart_state_t *uart = dev->state;
+  tty_thread_t *ttd = &uart->u_ttd;
+
+  WITH_SPIN_LOCK (&uart->u_lock) {
+@\llabel{k1}@    if (uart_rx_ready(dev)) {
+@\llabel{k2}@      (void)ringbuf_putb(&uart->u_rx_buf, uart_getc(dev));
+@\llabel{k3}@      ttd->ttd_flags |= TTY_THREAD_RXRDY;
+      cv_signal(&ttd->ttd_cv);
+    }
+
+@\llabel{k4}@    if (uart_tx_ready(dev)) {
+      uint8_t byte;
+@\llabel{k5}@      while (uart_tx_ready(dev) && ringbuf_getb(&uart->u_tx_buf, &byte))
+        uart_putc(dev, byte);
+@\llabel{k6}@      if (ringbuf_empty(&uart->u_tx_buf)) {
+@\llabel{k7}@        if (ttd->ttd_flags & TTY_THREAD_OUTQ_NONEMPTY) {
+@\llabel{k8}@          ttd->ttd_flags |= TTY_THREAD_TXRDY;
+          cv_signal(&ttd->ttd_cv);
+        }
+@\llabel{k9}@        uart_tx_disable(dev);
+      }
+    }
+  }
+}
+\end{minted}
+\caption{\Verb{sys/kern/uart.c}: definition of \Verb{uart_intr()}.}
+\end{listing}
+
+If \ref{k1} a character has been received by the hardware, we \ref{k2} put it
+into the receive buffer and \ref{k3} signal the worker thread to pass the
+character to the terminal layer.
+
+If \ref{k4} the hardware is ready to accept a new character, we \ref{k5} try to
+transmit as many characters from the transmit buffer as possible, hence the
+while loop. After that, if \ref{k6} we have emptied the transmit buffer, we
+\ref{k8} signal the worker thread to move some characters into the transmit
+buffer, but only if \ref{k7} the terminal's output queue is not empty. If the
+transmit buffer is empty, we also \ref{k9} prevent the hardware from reporting
+TX ready interrupts, as we can't do anything about them until the worker thread
+puts some data in the transmit buffer. The \Verb{uart_tty_fill_txbuf()} function
+takes care of enabling the interrupt, see listing \ref{lst:uart-tty-fill-txbuf}.
+
+\section{Pseudoterminals}
+
+Apart from embedded systems and debugging, character-based communication with
+the user over a serial link is becoming increasingly rare. Commodity desktop
+systems use a \textit{graphical} shell instead of a text-based one. However,
+text-based interaction with the system is still possible thanks to
+\textit{terminal emulators}.
+
+A terminal emulator is a program that provides an illusion of a terminal device
+to processes and the user. On the user side, the emulator displays a graphical
+window with contents of the emulated terminal window. On the process side, it
+exposes a terminal device file that behaves in the same way as a normal terminal
+device file would. Processes can open it and perform I/O on it. The terminal
+emulator plays the role of the hardware device: it translates the user's
+keystrokes into characters that are then made available as input to the
+processes reading from the emulated terminal device. It also reads the
+characters output by processes and displays them in the emulated terminal window.
+
+The OS facility which allows for the emulation of a terminal device in software
+is called a \textit{pseudoterminal}. A terminal emulator is far from the only
+use case for pseudoterminals. Programs like \Verb{sshd} (an SSH server) or
+\Verb{script} (which records an interactive terminal session into a file) also
+use pseudoterminals as a basic component. We will now take a look at how POSIX
+specifies their operation.
+
+\subsection{POSIX pseudoterminals}
+
+A pseudoterminal consists of a pair of devices: a \textit{master device} and a
+\textit{slave device}. The slave device is exposed to processes as a normal
+terminal device. The master device is used to emulate the hardware terminal.
+
+The master and slave devices are linked together: everything written to the
+master device is processed by the terminal layer as though it came from a
+hardware device, and is made available as input to processes reading from the
+slave device. Similarly, everything written to the slave device goes through
+output processing in the terminal layer and appears as input to processes
+reading from the master device. The flow of data between master and slave
+devices is shown in figure \ref{fig:term-hilevel-pty}.
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=\textwidth, keepaspectratio]{img/term-hilevel-pty}
+  \caption{Data flow between the pseudoterminal master and slave devices, with
+    the terminal layer's queues acting as intermediate buffers.}
+  \label{fig:term-hilevel-pty}
+\end{figure}
+
+A new pseudoterminal can be created using the
+\Verb{posix_openpt()}\cite{posix-openpt} function. It returns an open file
+descriptor to the master device of a pseudoterminal. Note that the master device
+isn't exposed in the filesystem: initially only the the process that created the
+pseudoterminal has access to the master device (although it can duplicate and
+transfer the file descriptor to another process).
+
+Once a pseudoterminal is created, its slave device is accessible via the
+filesystem. The slave device files are usually inside the \Verb{/dev/pts}
+directory. The file path of the slave device corresponding to a master device
+can be retrieved using the \Verb{ptsname()}\cite{ptsname} function.
+
+The slave device is available as long as the master device file is open. Once
+the last master device file descriptor is closed, the slave device disappears
+from the filesystem, and the effect is as though the emulated hardware device
+was disconnected from the system. Any subsequent I/O operation on the slave
+device fails with an error code.
+
+\subsection{Pseudoterminals in the Mimiker kernel}
+
+The implementation of pseudoterminals in the Mimiker kernel is relatively
+simple, as most of the logic is implemented in the terminal layer. All master
+device logic is implemented as a terminal driver and plugs into the terminal
+layer in the same way as the UART driver.
+
+\subsubsection{Data structures}
+
+\subsubsection*{\Verb{pty_t}}
+
+There is very little state associated with a pseudoterminal, as most of the
+state is managed by the terminal layer. The \Verb{pty_t} structure contains
+pseudoterminal-specific state.
+\begin{listing}[H]
+\begin{minted}{c}
+typedef struct {
+  atomic_int pt_number;
+  condvar_t pt_incv;
+  condvar_t pt_outcv;
+} pty_t;
+\end{minted}
+\caption{\Verb{sys/kern/pty.c}: definition of \Verb{pty_t}.}
+\end{listing}
+
+The \Verb{pt_number} field is a unique number identifying the pseudoterminal.
+The number determines the filesystem path under which the slave device is
+available. For instance, if \Verb{pt_number} is equal to 3, the slave device's
+path is \Verb{/dev/pts/3}.
+
+The \Verb{pt_incv} condition variable is used by master-side readers to wait for
+data to become available in the slave terminal device's \textbf{output} queue,
+while the \Verb{pt_outcv} condition variable is used by master-side writers to
+wait for space to become available int the slave terminal device's
+\textbf{input} queue.
+
+\subsubsection{Master-side input}
+
+Processes write to the master device of a pseudoterminal using the
+\Verb{write()} system call, which inside the kernel uses the \Verb{fo_read}
+function pointer to call the appropriate implementation. In the case of master
+device files, that function pointer points to \Verb{pty_read()}. Let us examine
+how it operates.
+
+\begin{listing}[H]
+\begin{minted}{c}
+static int pty_read(file_t *f, uio_t *uio) {
+  tty_t *tty = f->f_data;
+  pty_t *pty = tty->t_data;
+  int error;
+
+  SCOPED_MTX_LOCK(&tty->t_lock);
+
+  /* Wait until there is at least one byte of data. */
+@\llabel{l1}@  while (ringbuf_empty(&tty->t_outq)) {
+@\llabel{l2}@    if (!tty_opened(tty))
+      return 0;
+@\llabel{l3}@    if (cv_wait_intr(&pty->pt_incv, &tty->t_lock))
+      return ERESTARTSYS;
+  }
+
+@\llabel{l4}@  error = ringbuf_read(&tty->t_outq, uio);
+@\llabel{l5}@  tty_getc_done(tty);
+
+  return error;
+}
+\end{minted}
+\caption{\Verb{sys/kern/pty.c}: definition of \Verb{pty_read()}.}
+\end{listing}
+
+The function first \ref{l1} loops until there is some data in the corresponding
+slave terminal's output queue. If \ref{l2} the slave device isn't opened by any
+processes, we return without reading anything. Otherwise, we \ref{l3} wait on
+the pseudoterminal's \Verb{pt_incv} condition variable. If our sleep got
+interrupted by a signal, we return an error code of \Verb{ERESTARTSYS}.
+
+The \Verb{pt_incv} condition variable is signaled when new data arrives in the
+slave terminal's output queue. Recall from section~\ref{chap:mimiker-tty}
+that the \Verb{t_notify_out} function is called when new characters are added to
+the output queue. This function's implementation is supplied by the driver, so
+in our case, the function simply wakes up all threads waiting on the
+\Verb{pt_incv} condition variable:
+\begin{listing}[H]
+\begin{minted}{c}
+static void pty_notify_out(tty_t *tty) {
+  pty_t *pty = tty->t_data;
+  /* Notify PTY readers: input is available. */
+  cv_broadcast(&pty->pt_incv);
+}
+\end{minted}
+\caption{\Verb{sys/kern/pty.c}: definition of \Verb{pty_notify_out()}.}
+\end{listing}
+
+Once we get past the loop, we know that there is data available in the output
+queue, so we \ref{l4} read the data into the buffer supplied by the reading
+process. The interface of the terminal layer requires us to call
+\Verb{tty_getc_done()} after consuming characters from the output queue, so
+at \ref{l5} we do just that.
+
+\subsubsection{Master-side output}
+
+Writing to the master device is accomplished in the kernel using the
+\Verb{pty_write()} function, which hooks into the \Verb{fo_write} operation in
+the generic file-handling layer.
+
+\begin{listing}[H]
+\begin{minted}{c}
+static int pty_write(file_t *f, uio_t *uio) {
+  tty_t *tty = f->f_data;
+  pty_t *pty = tty->t_data;
+  int error = 0;
+  uint8_t c;
+  uiostate_t save;
+
+  SCOPED_MTX_LOCK(&tty->t_lock);
+
+@\llabel{m1}@  while (uio->uio_resid > 0) {
+@\llabel{m2}@    uio_save(uio, &save);
+@\llabel{m3}@    if ((error = uiomove(&c, 1, uio)))
+      break;
+@\llabel{m4}@    if ((error = pty_putc_sleep(tty, pty, c))) {
+@\llabel{m5}@      uio_restore(uio, &save);
+      break;
+    }
+  }
+
+  return error;
+}
+\end{minted}
+\caption{\Verb{sys/kern/pty.c}: definition of \Verb{pty_write()}.}
+\end{listing}
+
+The function \ref{m1} loops as long as there are character left to write in the
+buffer supplied by the calling process. Before reading the actual character,
+\ref{m2} the current status of the I/O operation is saved. We then \ref{m3} read
+the character to be written from the userspace buffer and \ref{m4} write it to
+the slave terminal's input queue using the \Verb{pty_putc_sleep()} function,
+which sleeps on the \Verb{pt_outcv} condition variable if there's no space in
+the input queue, and also returns an error if the slave device isn't opened by
+any processes. Once there's space in the input queue, the \Verb{t_notify_in}
+function pointer is invoked, which in our case points to \Verb{pty_notify_in}:
+\begin{listing}[H]
+\begin{minted}{c}
+static void pty_notify_in(tty_t *tty) {
+  pty_t *pty = tty->t_data;
+  /* Notify PTY writers: there is space in the slave TTY's input queue. */
+  cv_broadcast(&pty->pt_outcv);
+}
+\end{minted}
+\caption{\Verb{sys/kern/pty.c}: definition of \Verb{pty_notify_in()}.}
+\end{listing}
+
+If the \Verb{pty_putc_sleep()} function fails, we must roll back the read of the
+character at \ref{m3}, since we failed to properly consume it. To do that, we
+\ref{m5} restore the previously saved state of the I/O operation. After rolling
+back, we break out of the loop and return with an error code.
+
+
+
+A character's journey through the kernel begins with its reception by the
+serial device. An interrupt-driven device (e.g. a UART) signals the reception of
+a character by asserting its interrupt line, which will eventually lead to
+interrupting the CPU. The CPU will then jump to an \textit{interrupt service
+  routine}, or ISR.
+
+The ISR will execute the serial device driver's code that extracts the character
+from the device registers and inserts it into the serial device's
+\textit{receive buffer}. This buffer is different from the associated terminal's
+input buffer. The driver will then wake up a worker thread that copies
+characters from the receive buffer into the terminal's input buffer.
 
 \chapter{Implementation Challenges}
 
