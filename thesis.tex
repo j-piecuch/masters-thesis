@@ -1,7 +1,7 @@
 \RequirePackage{xcolor}
 \documentclass[shortabstract, manyadvisors, english, mgr]{iithesis}
 \usepackage[utf8]{inputenc}
-\usepackage{minted, fancyvrb, epigraph, xurl, pifont, graphicx}
+\usepackage{minted, fancyvrb, epigraph, xurl, pifont, graphicx, multicol}
 
 \englishtitle{Implementation of the Terminal Subsystem \\ and Job Control \\
   in the Mimiker Operating System}
@@ -476,10 +476,11 @@ process lock of the target process. We acquire the necessary locks at \ref{g3}.
 
 When acquiring two locks of the same type (in this case process group locks),
 one has to be very careful not to cause a deadlock. The usual way to ensure
-safety from deadlocks is to establish an order on the locks, and whenever
+safety from deadlocks is to establish an ordering on the locks, and whenever
 multiple locks need to be acquired, make sure all required locks are acquired
-according to that order. However, in this case deadlock can be avoided without
-specifying an order on process group locks, by enforcing the following rule:
+according to that ordering. However, in this case deadlock can be avoided
+without specifying an order on process group locks, by enforcing the following
+rule:
 \begin{quote}
   In order to acquire multiple process group locks, a thread must already hold
   the \Verb{all_proc_mtx} lock.
@@ -2565,20 +2566,6 @@ character at \ref{m3}, since we failed to properly consume it. To do that, we
 \ref{m5} restore the previously saved state of the I/O operation. After rolling
 back, we break out of the loop and return with an error code.
 
-
-
-A character's journey through the kernel begins with its reception by the
-serial device. An interrupt-driven device (e.g. a UART) signals the reception of
-a character by asserting its interrupt line, which will eventually lead to
-interrupting the CPU. The CPU will then jump to an \textit{interrupt service
-  routine}, or ISR.
-
-The ISR will execute the serial device driver's code that extracts the character
-from the device registers and inserts it into the serial device's
-\textit{receive buffer}. This buffer is different from the associated terminal's
-input buffer. The driver will then wake up a worker thread that copies
-characters from the receive buffer into the terminal's input buffer.
-
 \chapter{Implementation Challenges}
 
 In order to properly implement terminal and job control support in the kernel,
@@ -2587,8 +2574,330 @@ unimplemented features, while others concerned more fundamental design choices
 in the kernel. This chapter describes a number of interesting issues that arose,
 and how they have been resolved.
 
-\subsection{Interruptible sleep and stop signals}
-\section{Locking}
+\section{Interruptible sleep and stop signals}
+
+When a process performs certain I/O operations (e.g. reading from a terminal
+device), if the data isn't immediately available, the calling thread will
+\textit{sleep} (i.e. suspend execution in the kernel) awaiting the data. Two
+kinds of sleep are usually distinguished: \textit{interruptible} and
+\textit{uninterruptible}. Interruptible sleep is used in case of I/O that may
+take an arbitrarily long time to complete, as is the case when reading from a
+terminal --- there is no guarantee that data will eventually arrive.
+
+When a thread sleeping interruptibly receives a signal for which it has
+registered a handler, it is resumed so that it can handle the signal: the
+thread's sleep has been \textit{interrupted}.
+
+There are two things that can happen after a thread has its sleep interrupted by
+a signal, depending on the value of the handler's \Verb{SA_RESTART} flag:
+\begin{itemize}
+\item If the flag is set, the interrupted system call is restarted;
+\item If the flag is not set, the interrupted system call returns to userspace,
+  usually with an error code of \Verb{EINTR}.
+\end{itemize}
+
+When a thread receives a stop signal (e.g. \Verb{SIGSTOP}), its execution should
+be immediately stopped. Once the thread is resumed using \Verb{SIGCONT},
+assuming the \Verb{SIGCONT} signal had no registered handler, according to POSIX
+\cite[Section~2.4.4]{general-spec}, the thread should resume at the point it was
+stopped. This means that the reception of a \Verb{SIGSTOP} signal followed by
+\Verb{SIGCONT} should usually be imperceptible to userspace processes.
+
+In most kernels, signals are usually handled whenever a thread returns from the
+kernel to userspace. The set of pending signals for the current thread is
+checked, and if a signal which should be delivered is found, it is delivered
+either by killing or stopping the thread, or arranging for the signal handler to
+be called. Having a single point where signals are handled is beneficial from an
+architectural standpoint, as it introduces the smallest possible amount of
+complexity, making it easier to understand.
+
+However, what should happen when a stop signal is being sent to a thread that is
+sleeping interruptibly? Should it be stopped \textit{while} it is sleeping and
+remain sleeping when it is resumed? Or should its sleep be interrupted, making
+the interrupted thread continue execution to the userspace boundary, where it
+will handle the stop signal itself? Note that in the second case, the system
+call that was interrupted must be restarted in order to maintain the illusion
+that execution has been resumed at the point it was stopped.
+
+The first approach is implemented in the FreeBSD kernel. It has the advantage of
+being somewhat more true to the specification, as the stopped thread will
+continue at exactly the point it was stopped. However, there are some drawbacks
+to this approach:
+\begin{itemize}
+\item It introduces additional logic to handle sending a stop signal to a thread
+  that is sleeping interruptibly;
+\item Signals are no longer always processed at the kernel-userspace boundary:
+  stop signals can also be processed when a thread is going to sleep;
+\item A thread sleeping interruptibly can be indefinitely prevented from waking
+  up by sending it a stop signal. This could potentially be exploited to perform
+  denial of service attacks on certain components of the system. For instance, a
+  thread writing to a terminal may sleep (interruptibly) on a condition variable
+  while having exclusive access to that terminal. If a stop signal is sent to
+  that thread while it is sleeping, it won't relinquish its exclusive access
+  until it is resumed. A malicious program could use this technique to prevent
+  all other processes from writing to a terminal device.
+\end{itemize}
+
+The second approach, used in the Linux kernel, avoids the drawbacks of the first
+approach:
+\begin{itemize}
+\item Sending a stop signal to a thread that is sleeping interruptibly is done
+  in the same way as sending any other signal: if the signal isn't blocked or
+  ignored, the receiving thread's sleep is interrupted and the signal is handled
+  at the userspace boundary;
+\item Signals are processed in one spot: if a thread detects a pending stop
+  signal when it is about to go to sleep, it won't go to sleep, and instead
+  report to the caller that a signal needs to be handled;
+\item Since threads can stop only at the userspace boundary, they can't hold any
+  exclusive kernel resource (such as exclusive access to a terminal device) when
+  stopping.
+\end{itemize}
+
+When implementing stop signals in the Mimiker kernel, a choice had to be made
+about which approach to choose. The second approach seems conceptually simpler
+and avoids the pitfalls of the first one, which is why it was chosen. Let us now
+get into more details about how it works.
+
+When a thread that is about to go to sleep inside a system call detects a
+pending signal, it returns a special error code that specifies under what
+circumstances the system call should be restarted:
+\begin{itemize}
+\item \Verb{ERESTARTSYS}: restart the system call if and only if no signal was
+  caught or the caught signal's handler has the \Verb{SA_RESTART} flag set; 
+\item \Verb{ERESTARTNOHAND}: restart the system call if and only if no signal
+  was caught.
+\end{itemize}
+Linux defines two more error codes like this (\Verb{ERESTARTNOINTR} and
+\Verb{ERESTART_RESTARTBLOCK}), but at the time of writing they are not needed to
+implement any system call in the Mimiker kernel, so they have not been included.
+
+Note that a signal is \textit{caught} only if its handler is executed. Therefore,
+if a thread is stopped using \Verb{SIGSTOP} and resumed using \Verb{SIGCONT},
+assuming \Verb{SIGCONT} had no associated handler, then no signal was caught.
+Consequently, if a system call returns \Verb{ERESTARTSYS}, and the only signals
+handled at the userspace boundary are \Verb{SIGSTOP} followed by \Verb{SIGCONT}
+(without a handler), then the system call will be restarted in the same way it
+would be if there were no signals to handle at all.
+
+As a concrete example, let's trace what happens when a thread inside of a
+\Verb{write()} system call on a terminal device attempts to sleep interruptibly
+while having a pending \Verb{SIGSTOP} signal:
+\begin{enumerate}
+\item In \Verb{tty_do_write()} the thread calls \Verb{tty_output_sleep()}, which
+  finds out the terminal output queue full and calls \Verb{tty_wait()} to sleep
+  on the condition variable \Verb{t_outcv}.
+\item The \Verb{cv_wait_intr()} function, used to sleep on the condition
+  variable, calls \Verb{sleepq_wait_timed()}, which is the main kernel function
+  used to go to sleep.
+\item The \Verb{sleepq_wait_timed()} function checks the current thread's
+  \Verb{TDF_NEEDSIGCHK} flag, which indicates that there is a pending signal. If
+  the flag is set, the function immediately returns \Verb{EINTR}.
+\item The \Verb{EINTR} error code is propagated to \Verb{tty_wait()}, which
+  converts it to \Verb{ERESTARTSYS}.
+\item The \Verb{ERESTARTSYS} error code is propagated through the call stack,
+  during which the exclusive terminal access gained in \Verb{tty_write()} is
+  relinquished.
+\item Before returning to userspace, in \Verb{on_user_exc_leave()}, the
+  \Verb{sig_check()} function checks for pending signals. Signals that should
+  stop or kill the receiving process are handled immediately inside
+  \Verb{sig_check()}. In our case the only pending signal is \Verb{SIGSTOP}, so
+  this is where the thread is stopped.
+\item After being resumed via \Verb{SIGCONT}, \Verb{sig_check()} checks for
+  pending signals once again. The return value from \Verb{sig_check()} indicates
+  whether there are any pending signals with a registered handler. Let's assume
+  that no new signals apart from \Verb{SIGCONT} arrived while the thread was
+  stopped, and that the \Verb{SIGCONT} has no registered handler, so the return
+  value from \Verb{sig_check()} indicates that no signals need to be caught.
+\item The return value from \Verb{sig_check()}, along with the system call
+  return value (\Verb{ERESTARTSYS} in our case), is passed to
+  \Verb{set_syscall_retval()}. This function handles the special return codes
+  and arranges for the system call to be restarted if needed. According to the
+  semantics of \Verb{ERESTARTSYS}, since no signal is to be caught, the system
+  call is arranged to be restarted by appropriately modifying the userspace
+  thread's context.
+\item Upon return from the kernel to userspace, the \Verb{write()} system call
+  is immediately restarted.
+\end{enumerate}
+
+\section{Refinement of locking rules}
+
+As explained in section \ref{chap:locking-intro} (TODO: write the chapter we're
+referring to here), locking primitives such as mutexes are used to synchronize
+concurrent accesses to members of data structures that are shared between
+threads. When using these locking primitives, care must be taken to prevent
+\textit{deadlocks}. A deadlock occurs when a group of two or more threads is
+stuck, with each thread in the group waiting for a resource that is held by
+another thread in the group.
+
+The simplest example of a deadlock is when two threads each attempt to acquire
+two mutexes: \Verb{mtx_a} and \Verb{mtx_b}, with thread 1 acquiring the mutexes
+in a different order than thread 2. Listing \ref{lst:deadlock} shows example
+code for the threads.
+\begin{listing}[h]
+\begin{multicols}{2}
+\begin{center}
+  Thread 1
+\end{center}
+\begin{minted}{c}
+void thread1(void) {
+  mtx_lock(mtx_a);
+  mtx_lock(mtx_b);
+  /* ... */
+  mtx_unlock(mtx_b);
+  mtx_unlock(mtx_a);
+}
+\end{minted}
+\begin{center}
+  Thread 2
+\end{center}
+\begin{minted}{c}
+void thread2(void) {
+  mtx_lock(mtx_b);
+  mtx_lock(mtx_a);
+  /* ... */
+  mtx_unlock(mtx_a);
+  mtx_unlock(mtx_b);
+}
+\end{minted}
+\end{multicols}
+\caption{Example code of two threads acquiring mutexes in different orders.}
+\label{lst:deadlock}
+\end{listing}
+
+Consider the following sequence of events:
+\begin{enumerate}
+\item Thread 1 acquires \Verb{mtx_a};
+\item Thread 2 acquires \Verb{mtx_b};
+\item Thread 1 attempts to acquire \Verb{mtx_b} and blocks, since it is already
+  held by thread 2;
+\item Thread 2 attempts to acquire \Verb{mtx_a} and blocks, since it is already
+  held by thread 1.
+\end{enumerate}
+Clearly, neither thread can proceed, since each thread is waiting for a lock
+that is held by the other thread. Hence, we have a deadlock.
+
+One of the most common ways to prevent such deadlocks is to impose an
+\textit{ordering} on the locks and require that locks are always acquired
+according to that ordering. For instance, if we imposed an ordering that placed
+\Verb{mtx_a} before \Verb{mtx_b}, it would be illegal to acquire \Verb{mtx_a}
+while holding \Verb{mtx_b}. If a thread wanted to acquire both mutexes, it would
+need to acquire \Verb{mtx_a} first and then \Verb{mtx_b}. Thus, the two threads
+from the example would acquire the two mutexes in the same ordering, preventing
+a deadlock from happening.
+
+The Mimiker kernel tries to avoid deadlocks using this method. Whenever multiple
+locks are acquired, they are acquired according to an informally defined
+ordering. During the integration of the terminal subsystem with other subsystems
+of the kernel (e.g. signal handling), the per-terminal \Verb{t_lock} embedded in
+the \Verb{tty_t} structure had to be placed somewhere in the lock ordering. This
+posed some problems, as the following example illustrates.
+
+Consider what happens when a session leader terminates. If the session has an
+controlling terminal, and the terminal has a foreground process group, then
+every process in the foreground process group should receive a \Verb{SIGHUP}
+signal. In order to access a process's session structure and its controlling
+terminal, the \Verb{all_proc_mtx} mutex must be held. In order to examine a
+terminal's foreground process group, the terminal's \Verb{t_lock} mutex must be
+held. Therefore, \Verb{all_proc_mtx} must be acquired first in order to look up
+the controlling terminal, and then \Verb{t_lock} must be acquired to examine the
+foreground process group. This places \Verb{all_proc_mtx} before \Verb{t_lock}
+in the lock ordering.
+
+After looking up the foreground process group, we might need to send a signal to
+each process in the group using the \Verb{sig_pgkill()} function. This function
+requires both \Verb{all_proc_mtx} and the target process group's \Verb{pg_lock}
+to be held by the caller. This implies that \Verb{pg_lock} comes after
+\Verb{t_lock} and \Verb{all_proc_mtx} in the ordering.
+
+Now that we have established that \Verb{all_proc_mtx} $<$ \Verb{t_lock} $<$
+\Verb{pg_lock}, let's look at what needs to happen during terminal input
+processing. If the \Verb{ISIG} terminal flag is set, we must send a signal to
+every process in the foreground process group in response to certain control
+characters. Understandably, character processing happens while holding
+\Verb{t_lock}. In order to send a signal to the foreground process group, we
+must acquire \Verb{all_proc_mtx} and the group's \Verb{pg_lock}. However, note
+that acquiring \Verb{all_proc_mtx} while holding \Verb{t_lock} would violate the
+ordering!
+
+Several bad solutions quickly come to mind:
+\begin{itemize}
+\item Require callers of \Verb{tty_input()} to hold \Verb{all_proc_mtx}.\\
+  This is bad, because \Verb{all_proc_mtx} is only needed when sending a signal,
+  which happens rarely during terminal input processing. Processing of normal
+  characters should not bear the cost of synchronization that is needed only in
+  exceptional cases.
+\item When a signal needs to be sent, drop \Verb{t_lock}, and then acquire
+  \Verb{all_proc_mtx}, \Verb{t_lock} and the foreground process group's
+  \Verb{pg_lock}.\\
+  This might work, but requires some extra precautions.
+  First of all, the terminal device might disappear while we are not holding
+  \Verb{t_lock}. Secondly, dropping \Verb{t_lock} would lead to headaches for
+  callers of \Verb{tty_input()}, which might rely on holding \Verb{t_lock} for
+  their own synchronization purposes.
+\end{itemize} 
+
+A semi-reasonable solution is to delegate sending the signal to another thread.
+This is the approach used in the NetBSD kernel. This approach is actually
+\textit{necessary} in the case of NetBSD, as the terminal layer there uses
+spinlocks for synchronization, not mutexes, and sending a signal requires
+holding a mutex. Since it is illegal to acquire a mutex while holding a
+spinlock, delegating the job to a thread is a necessity.
+
+We chose not to follow NetBSD's approach and instead follow the approach found
+in the FreeBSD kernel, where it is possible to send a signal to a process group
+while holding a terminal's mutex. That's because the locking requirements of the
+function used to send signals in FreeBSD are less strict compared to the Mimiker
+kernel. We therefore relaxed the locking requirements of the \Verb{sig_kill()}
+function, so that it no longer requires \Verb{all_proc_mtx} to be held by the
+caller. This was not a trivial task. To understand why, we need to understand
+why \Verb{sig_kill()} required \Verb{all_proc_mtx} in the first place.
+
+A parent may be waiting for a child process's state to change using the
+\Verb{waitpid()} function. Resuming a process using the \Verb{SIGCONT} signal
+counts as a state change. Therefore, the parent of a stopped process receiving a
+\Verb{SIGCONT} signal must be notified of the state change. This notification
+happens inside the \Verb{sig_kill()} function. The code of the \Verb{wait4()}
+system call (which implements the \Verb{waitpid()} POSIX function) used
+\Verb{all_proc_mtx} to synchronize with \Verb{sig_kill()}, so if we were to
+remove \Verb{all_proc_mtx} from \Verb{sig_kill()}, we would also need to adjust
+the \Verb{wait4()} system call's code.
+
+Another complication is that in order to notify the parent, we need to access
+the \Verb{p_parent} field of the process receiving the signal. This field used
+to be protected by \Verb{all_proc_mtx}, so that requirement also needed to be
+changed. 
+
+The first issue was resolved by using the parent process's \Verb{p_lock} to
+synchronize the waiting thread with the notifying thread. The
+\Verb{PF_CHILD_STATE_CHANGED} flag is set in the parent process to tell it that
+a child process's state has changed.
+
+The second issue was resolved by changing the locking rules around the
+\Verb{p_parent} field of \Verb{proc_t}. The field is now protected by
+\textit{two} locks: the process's \Verb{p_lock} and \Verb{all_proc_mtx}. In
+order to read the field's value, holding either lock is sufficient. However, in
+order to change the value, \textit{both} locks must be held. Since in
+\Verb{sig_kill()}  we're only reading the value of \Verb{p_parent}, holding the
+target process's \Verb{p_lock} is enough.
+
+While the two issues are now resolved, another problem arises as a result: in
+order to notify the parent of the target process's state change, we must acquire
+the parent's \Verb{p_lock} \textit{while} holding its child's \Verb{p_lock}.
+This used to be forbidden by the locking rules. However, note that we can safely
+acquire the parent's mutex if we enforce the following rule:
+\begin{quote}
+  The \Verb{p_lock} of the parent of a process \Verb{p} may be acquired while
+  holding the \Verb{p_lock} of \Verb{p}, but not the other way around.
+\end{quote}
+Since the process hierarchy forms a tree, there are no cycles, so it is
+impossible for a deadlock to occur. We could extend this rule to arbitrary
+ancestors instead of just the parent, but currently it does not bring any
+additional benefits.
+
+With these adjustments in place, the \Verb{sig_kill()} function no longer
+requires \Verb{all_proc_mtx} to be held by the caller, and it's possible to send
+a signal to the foreground process group directly from within \Verb{tty_input()}.
+
 \chapter{Conclusion}
 
 \bibliography{bibliography}
