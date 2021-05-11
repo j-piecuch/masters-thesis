@@ -167,6 +167,11 @@ and the operating system has no knowledge of them. However, there is a close
 correspondence between shell jobs and process groups, which are implemented by
 the operating system. The shell puts different jobs in different process groups.
 
+\section{Introduction to the Mimiker kernel}
+TODO
+\subsection{Synchronization primitives}
+TODO
+
 \chapter{Job Control}
 
 Support for job control on POSIX-compliant systems is realised by several
@@ -683,7 +688,7 @@ change the process group of the calling process to the one we just created.
 
 \section{Job Control Signals}
 
-\subsection{POSIX signals}
+\subsection{POSIX signals}\label{chap:signals}
 
 \textit{Signals} are used to notify processes of various events. These events
 can occur \textit{synchronously} or \textit{asynchronously} with respect to the
@@ -712,7 +717,8 @@ the \textit{signal number}. In fact, \Verb{SIGSEGV} and others are \textit{C
 
 Processes can take different actions in response to signals with different
 numbers. Every process has its own set of \textit{signal actions} associated
-with every signal number. There are three possible actions that can be taken in
+with every signal number. The action associated with a signal is also called its
+\textit{disposition}. There are three possible actions that can be taken in
 response to a signal:
 \begin{enumerate}
 \item Take the default action for that signal number.
@@ -1311,8 +1317,8 @@ now examine the most important aspects of the terminal specification
 \subsubsection{Terminal input and output}
 
 Data coming in from the hardware terminal device is processed according to the
-terminal mode and flags, which will be described in a subsequent section, after
-which it is buffered in the \textit{input queue}. Processes calling
+terminal mode and flags, which will be described in a subsequent section. After
+processing, it is buffered in the \textit{input queue}. Processes calling
 \Verb{read()} on a terminal file descriptor receive data from the input queue.
 
 When a process writes data to a terminal file descriptor using \Verb{write()},
@@ -1331,13 +1337,13 @@ processes and terminal devices is shown in figure \ref{fig:term-hilevel}.
 
 \begin{figure}[h]
   \centering
-  \includegraphics[width=\textwidth, keepaspectratio]{img/term-hilevel}
+  \includegraphics[width=\textwidth, keepaspectratio]{img/term-hilevel-new}
   \caption{A high-level overview of terminal data flow. The clouds in the
     terminal driver symbolize two things: first, the terminal layer is not
     concerned with how the driver processes the characters it receives from the
     hardware or from the the terminal layer. Second, different drivers may
     process characters differently.}
-  \label{fig:term-hilevel-new}
+  \label{fig:term-hilevel}
 \end{figure}
 
 \subsubsection{Controlling terminals}
@@ -1354,10 +1360,12 @@ responsible for setting and changing the controlling terminal device, although
 the way in which this is done is not specified in the standard.
 
 When the leader of a session terminates, the controlling terminal (if any) is
-dissociated from the session. Any processes left in the session may have their
-access to the controlling terminal revoked. If a controlling terminal disappears
-from the system (e.g.\ due to the terminal device no longer being available),
-the leader of the associated session is sent a \Verb{SIGHUP} signal.
+dissociated from the session. Any processes left in the session can, but don't
+need to, have their access to the controlling terminal revoked (see
+\cite[Section~11.1.3]{terminal-spec}). If a controlling terminal disappears from
+the system (e.g.\ due to the terminal device no longer being available), the
+leader of the associated session is sent a \Verb{SIGHUP} signal. Note that the
+signal is not necessarily fatal, as it can be caught or ignored by any process.
 
 \subsubsection{Foreground process groups}
 
@@ -1428,31 +1436,34 @@ A shell belongs to the first group, because it accepts a whole command at a
 time. Most notably, the user may edit the command before submitting it to the
 program by pressing the return key (labelled ``Enter'' on most keyboards).
 
-A text editor belongs to the second group. Each key performs an action within
-the editor, such as moving the cursor or inserting text at the position of the
-cursor.
+A text editor like \Verb{vi} belongs to the second group. Each key performs an
+action within the editor, such as moving the cursor or inserting text at the
+position of the cursor.
 
-In serious applications, line-oriented input is usually accomplished using a
-library such as GNU Readline \cite{readline}. However, POSIX mandates that basic
-line-editing functionality is provided by the operating system itself.
+In more complex applications, line-oriented input is usually accomplished using
+a library such as GNU Readline \cite{readline}. However, POSIX mandates that
+basic line-editing functionality is provided by the operating system itself.
 Applications may choose whether they want to use this functionality by choosing
 the \textit{terminal mode}. Two terminal modes are distinguished:
 \textit{canonical} and \textit{non-canonical}, the former providing basic line
-editing.
+editing. The terminal mode has no influence over other aspects of input
+processing, such as sending signals in response to certain control characters.
 
 In canonical mode, typed characters are appended to the \textit{line buffer}.
 Characters may be erased from the line buffer by typing the special characters
 \Verb{VERASE} (which erases the character at the end of the buffer) or
-\Verb{VKILL} (which erases the whole buffer). These special characters are
-processed by the operating system and are not forwarded to userspace. Once the
-user types a \textit{line-terminating} character, the contents of the line
-buffer are appended to the input queue and become available as input to
-userspace programs.
+\Verb{VKILL} (which erases the whole buffer). On most systems, the \Verb{VERASE}
+character corresponds to the Backspace key on the keyboard, while \Verb{VKILL}
+corresponds to Control-U. These special characters are processed by the
+operating system and are not forwarded to userspace. Once the user types a
+\textit{line-terminating} character (e.g. \Verb{'\n'}, bound to the Return key
+on most keyboards), the contents of the line buffer are appended to the input
+queue and become available as input to userspace programs.
 
 In non-canonical mode there is no line buffer, and every non-special character
 typed by the user is immediately available to userspace programs. The
 \Verb{VERASE}, \Verb{VKILL}, and line-terminating characters are no longer
-special to the OS and appear as input on the terminal.
+processed in a special way by the OS and appear as input on the terminal.
 
 The terminal mode controls only part of the processing that is performed on
 characters coming in. There are many \textit{terminal flags} that can enable
@@ -1523,7 +1534,14 @@ The \Verb{termios} structure must contain the following fields:
     (terminal stop signal) to the foreground process group.
   \end{itemize}
 \end{itemize}
-For the full specification of the \Verb{termios} structure, see \cite{termios}.
+The current values of terminal flags and control characters can be examined from
+the shell using the \Verb{stty} program~\cite{stty}, available on most UNIX-like operating
+systems, including Linux. To list the current values of all terminal flags and
+control characters for the shell's controlling terminal, use the command:
+\begin{quote}
+  \Verb{stty -a}
+\end{quote}
+For the full specification of the \Verb{termios} structure, see~\cite{termios}.
 
 \subsection{Terminals in the Mimiker kernel}\label{chap:mimiker-tty}
 
@@ -1542,20 +1560,6 @@ The layer is responsible for character processing, as well as buffering them in
 the input and output queues. It includes a mechanism to notify the hardware
 terminal driver when new characters arrive in the output queue, as well as when
 space becomes available in the input queue.
-
-% TODO diagram prezentujący przepływ sterowania przy pisaniu znaków
-% i czytaniu:
-% Pisanie: proces --(write())--> system call layer
-%                 --(f_write == tty_write())--> terminal layer
-%                 --(tty_notify_out())--> UART terminal driver
-%                 --(uart_putc())--> UART hardware
-%
-% Czytanie: proces --(read())--> system call layer
-%                  --(f_read == tty_read())--> terminal layer: sleep or return
-% Przychodzi znak: UART interrupt --(uart_intr())--> UART terminal driver
-%                  --(tty_input())--> terminal layer --> notify sleeping threads
-%                  about new data
- 
 
 \subsubsection{Data structures}
 
@@ -1608,17 +1612,20 @@ The \Verb{t_lock} mutex synchronizes access to the structure.
 \item \Verb{TF_OUT_BUSY}: a thread is currently writing to this terminal.
   This flag is used to serialize \Verb{write()} calls on the same terminal.
 \item \Verb{TF_IN_HIWAT}: the \textit{input high watermark} has been reached.
-  Once space becomes available in the input queue, the hardware terminal driver
-  will be notified.
+  The watermark is reached when the terminal driver attempts to insert a
+  character into the input queue while it is already full. Once space becomes
+  available in the input queue, the hardware terminal driver will be notified.
 \item \Verb{TF_DRIVER_DETACHED}: the hardware terminal driver detached from this
   terminal, usually because the terminal device is no longer available. Any
   further I/O on this terminal should return an error.
 \end{itemize}
 
 \Verb{t_inq} is a ring buffer storing input coming from the hardware terminal
-driver. \Verb{read()} calls on the terminal file descriptor receive characters
-from this buffer. \Verb{t_incv} is a condition variable used to wait for input
-to become available in \Verb{t_inq}.
+driver. A ring buffer is a data structure implementing a FIFO queue with a
+bounded size. They are a popular in OS kernels thanks to their simplicity and
+efficiency. \Verb{read()} calls on the terminal file descriptor receive
+characters from this buffer. \Verb{t_incv} is a condition variable used to wait
+for input to become available in \Verb{t_inq}.
 
 \Verb{t_outq} is a ring buffer storing characters that should be written out by
 the underlying driver. The characters can come from processes writing to the
@@ -1628,9 +1635,12 @@ transmitting them. \Verb{t_outcv} is a condition variable used to wait for space
 to become available in the output queue or for the queue to become empty.
 
 \Verb{t_line} stores the contents of the line the user is typing in canonical
-mode. Its contents can be edited by the user. Once the user submits the line,
-its contents are copied into \Verb{t_inq}. The contents of \Verb{t_inq}
-cannot be changed. In non-canonical mode, \Verb{t_line} is not used.
+mode. The type \Verb{linebuf_t} is a structure containing a buffer containing
+the line's contents, the current length of the line, and the maximum capacity of
+the buffer. The line's contents can be edited by the user. Once the user submits
+the line, its contents are copied into \Verb{t_inq}. The contents of
+\Verb{t_inq} cannot be changed. In non-canonical mode, \Verb{t_line} is not
+used.
 
 \Verb{t_column} keeps track of the position of the terminal cursor. It is
 needed to support the \Verb{ONOCR} terminal flag, which forbids sending the
@@ -1779,8 +1789,14 @@ static int tty_do_read(file_t *f, uio_t *uio) {
 \end{listing}
 
 The \Verb{f} parameter points to a \Verb{file_t} structure representing an open
-file. The \Verb{uio} parameter describes the I/O operation and contains a
-pointer to the destination buffer (or buffers).
+file. Since the file represents a terminal, the \Verb{f_data} field contains a
+pointer to the associated terminal's \Verb{tty_t} structure.
+
+The \Verb{uio_t} structure describes the destination or source buffer (or
+buffers) of an I/O operation in the kernel. The \Verb{uio_resid} field contains
+the number of remaining bytes to be processed. Its design in the Mimiker kernel
+(see file \Verb{include/sys/uio.h}) was inspired by the \Verb{struct uio}
+structure found in kernels from the BSD family, see e.g. \cite{uio-man}.
 
 After acquiring the terminal's mutex, we first \ref{f1} check whether the driver
 has detached from this terminal. If it has, we cannot do any more I/O on it, so
@@ -1819,8 +1835,11 @@ cases, we break out of the read loop.
 
 In non-canonical mode, \ref{f8} exactly one character is read and returned to
 userspace. This behaviour is very different from that specified in POSIX (see
-\cite[Section~11.1.7]{terminal-spec}), but it works for most applications using
-this mode, such as text editors.
+\cite[Section~11.1.7]{terminal-spec}), where the semantics of \Verb{read()} in
+non-canonical mode depend on the values of the \Verb{VMIN} and \Verb{VTIME}
+parameters stored in the \Verb{t_cc} array. The POSIX semantics are considerably
+more difficult to implement and provide little to no benefit, since no
+applications that have been ported to Mimiker actually use them.
 
 Finally, \ref{f9} the \Verb{tty_check_in_lowat()} function will notify the
 driver if the input high watermark had been previously reached and the number of
@@ -1928,16 +1947,76 @@ perform the operation using \Verb{tty_check_background()} and to serialize calls
 to \Verb{tty_do_write()} by \ref{g2} waiting until the \Verb{TF_OUT_BUSY} flag
 is cleared.
 
-The \Verb{tty_do_write()} function puts each character in the buffer supplied by
-the process into the output queue using \Verb{tty_output_sleep()}. At the end,
-it notifies the terminal driver of new data using \Verb{tty_notify_out()}.
+The \Verb{tty_do_write()} function is responsible for putting each character in
+the supplied buffer into the output queue and notifying the driver.
 
-The \Verb{tty_output_sleep()} function puts characters into the output queue
-using \Verb{tty_output()}, sleeping on the \Verb{t_outcv} condition variable if
-there is no space left. The condition variable is signalled when the driver
-makes enough space available in the output queue. It calls \Verb{tty_output()}
-on each character to process it and insert it into the output queue. Let us take
-a look at the code of \Verb{tty_output()}.
+\begin{listing}[H]
+\begin{minted}{c}
+static int tty_do_write(tty_t *tty, uio_t *uio) {
+  uint8_t c;
+  int error = 0;
+
+  while (uio->uio_resid > 0) {
+@\llabel{n1}@    if ((error = uiomove(&c, 1, uio)))
+      break;
+@\llabel{n2}@    if ((error = tty_output_sleep(tty, c)))
+      break;
+    tty->t_rocount = 0;
+  }
+@\llabel{n3}@  tty_notify_out(tty);
+
+  return error;
+}
+\end{minted}
+\caption{\Verb{kern/tty.c}: simplified definition of \Verb{tty_do_write()}.}
+\label{lst:tty-do-write}
+\end{listing}
+
+The function \ref{n1} reads consecutive characters from the buffer supplied by
+the process and \ref{n2} puts them into the output queue one at a time using
+\Verb{tty_output_sleep()}. At the end, it \ref{n3} notifies the terminal driver
+of new data using \Verb{tty_notify_out()}.
+
+The \Verb{tty_output_sleep()} function puts a single character into the output
+queue, sleeping if there is no space available.
+
+\begin{listing}[H]
+\begin{minted}{c}
+static int tty_output_sleep(tty_t *tty, uint8_t c) {
+  int error;
+@\llabel{o1}@  while (!tty_output(tty, c)) {
+@\llabel{o2}@    tty_notify_out(tty);
+    /* tty_notify_out() can synchronously write characters to the device,
+     * so it may have written enough characters for us not to need to sleep. */
+@\llabel{o3}@    if (tty->t_outq.count < TTY_OUT_LOW_WATER)
+      continue;
+@\llabel{o4}@    tty->t_flags |= TF_WAIT_OUT_LOWAT;
+@\llabel{o5}@    if ((error = tty_wait(tty, &tty->t_outcv)))
+      return error;
+  }
+  return 0;
+}
+\end{minted}
+\caption{\Verb{kern/tty.c}: definition of \Verb{tty_output_sleep()}.}
+\label{lst:tty-output-sleep}
+\end{listing}
+
+The function repeatedly \ref{o1} attempts to insert the character into the
+output queue using \Verb{tty_output()}, which will return \Verb{false} if there
+is no space left in the queue. If that happens, we wait until the number of
+characters in the output queue drops below the \textit{output low watermark}.
+Before going to sleep, we \ref{o2} notify the terminal driver to make sure that
+it will eventually transfer some characters from the output queue, allowing us
+to proceed. The driver may transfer the characters \textit{synchronously}, i.e.
+directly in the \Verb{tty_notify_out()} function, which is why we must \ref{o3}
+check whether the low watermark has already been reached. If it hasn't, we
+\ref{o4} set the \Verb{TF_WAIT_OUT_LOWAT} flag to indicate that there is a
+thread waiting for space in the output queue, and finally we \ref{o5} go to
+sleep on the \Verb{t_outcv} condition variable. The variable will be signalled
+by the driver after it makes enough space available in the output queue.
+
+Let us now take a look at the code of the \Verb{tty_output()}, which takes care
+of output character processing and putting the characters into the output queue.
 
 \begin{listing}[H]
 \begin{minted}{c}
@@ -1969,9 +2048,13 @@ static bool tty_output(tty_t *tty, uint8_t c) {
 If the \Verb{OPOST} flag isn't set, we skip all output processing and \ref{h1}
 write the character directly to the output queue. Otherwise, we \ref{h2} call
 \Verb{tty_process_out} to handle \Verb{OCRNL}, \Verb{ONLCR} and \Verb{ONOCR}
-terminal flags. During processing, a single character can be converted into
-multiple characters, which is why we use the \Verb{cb} buffer to store them, and
-\Verb{ccount} is the number of resulting characters after processing.
+terminal flags. During processing, a single character can be converted into two
+characters due to the \Verb{ONLCR} flag, which is why we use the \Verb{cb}
+buffer to store them, and \Verb{ccount} is the number of resulting characters
+after processing. If the input flag \Verb{OXTABS} was implemented (currently it
+is not), then a single character could be converted into as many as eight
+characters, since if the flag is set, a tab character (\Verb{'\t'}) is converted
+into eight spaces.
 
 We then \ref{h3} attempt to write the processed characters to the output queue.
 The call to \Verb{tty_outq_write()} will return \Verb{false} if there isn't
@@ -2134,6 +2217,12 @@ following flags:
   tells the ISR whether it should wake up the worker thread to fill the transmit
   buffer. If the flag is cleared, then the terminal layer's output queue is
   empty, so it's unnecessary to wake up the worker to fill the transmit buffer.
+  At first, this flag might seem redundant: why not just check how many
+  characters are in the terminal's output queue? Notice that holding the
+  terminal's mutex is required in order to access its output queue. We need to
+  know whether the queue is empty in the ISR, which is not allowed to acquire
+  mutexes. Therefore, we use this flag as a workaround, as access to it requires
+  holding the UART's \Verb{u_lock} spinlock, which is allowed in an ISR.
 \end{itemize}
 
 \subsubsection*{\Verb{uart_state_t}}
@@ -2212,7 +2301,11 @@ static void uart_tty_fill_txbuf(device_t *dev) {
 The function consists of a loop that moves characters from the \Verb{tty}
 terminal's output queue to the transmit buffer. However, before transferring any
 characters, we \ref{i1} try to bypass the transmit buffer entirely, transmitting
-characters directly from the output queue to the hardware.
+characters directly from the output queue to the hardware. If we didn't try to
+bypass the transmit buffer, writing a single character to the terminal would
+always wake up the worker thread, which incurs extra overhead due to context
+switches. Such single-character writes are common, for example, when echoing
+characters typed by the user.
 
 The next step is to \ref{i2} check whether the transmit buffer is full or the
 output queue is empty. If neither condition is true, then we can \ref{i6}
@@ -2571,11 +2664,18 @@ back, we break out of the loop and return with an error code.
 
 \chapter{Implementation Challenges}
 
-In order to properly implement terminal and job control support in the kernel,
-many seemingly unrelated issues needed to be resolved. Some of them were
+In order to properly implement terminal and job control support in the Mimiker
+kernel, many seemingly unrelated issues needed to be resolved. Some of them were
 unimplemented features, while others concerned more fundamental design choices
 in the kernel. This chapter describes a number of interesting issues that arose,
 and how they have been resolved.
+
+This first issue concerns the way stop signals (e.g. \Verb{SIGSTOP}) interact
+with threads that are sleeping interruptibly. The second one arose when trying
+to reconcile the existing locking rules with the terminal subsystem's
+requirements. The last challenge described involves working around Mimiker's
+lack of \Verb{poll()}\cite{poll} and \Verb{select()}\cite{select} functionality
+when porting the \Verb{tetris} program.
 
 \section{Interruptible sleep and stop signals}
 
@@ -2585,21 +2685,27 @@ if the data isn't immediately available, the calling thread will \textit{sleep}
 usually distinguished: \textit{interruptible} and \textit{uninterruptible}.
 Interruptible sleep is used in case of I/O that may take an arbitrarily long
 time to complete, as is the case when reading from a terminal --- there is no
-guarantee that data will eventually arrive.
+guarantee that data will eventually arrive. Uninterruptible sleep is used when
+the event being awaited is expected to occur within a short time, for instance
+during disk I/O.
 
 When a thread sleeping interruptibly receives a signal for which it has
 registered a handler, it is resumed so that it can handle the signal: the
 thread's sleep has been \textit{interrupted}.
 
 There are two things that can happen after a thread has its sleep interrupted by
-a signal, depending on the value of the handler's \Verb{SA_RESTART} flag:
+a signal, depending on the value of the handler's \Verb{SA_RESTART} flag, whose
+value is set when installing a signal handler via
+\Verb{sigaction()}\cite{sigaction}:
 \begin{itemize}
 \item If the flag is set, the interrupted system call is restarted;
 \item If the flag is not set, the interrupted system call returns to userspace,
   usually with an error code of \Verb{EINTR}.
 \end{itemize}
 
-When a thread receives a stop signal (e.g. \Verb{SIGSTOP}), its execution should
+When a thread receives a stop signal (e.g. \Verb{SIGSTOP}) with a default
+disposition\footnote{Note that \Verb{SIGSTOP}'s disposition cannot be changed
+  from the default one, see Section~\ref{chap:signals}.}, its execution should
 be immediately stopped. Once the thread is resumed using \Verb{SIGCONT},
 assuming the \Verb{SIGCONT} signal had no registered handler, according to POSIX
 \cite[Section~2.4.4]{general-spec}, the thread should resume at the point it was
@@ -2661,6 +2767,12 @@ about which approach to choose. The second approach seems conceptually simpler
 and avoids the pitfalls of the first one, which is why it was chosen. Let us now
 get into more details about how it works.
 
+In the following discussion, a signal is considered \textit{caught} only if its
+handler is executed. Therefore, if a thread is stopped using \Verb{SIGSTOP} and
+resumed using \Verb{SIGCONT}, assuming \Verb{SIGCONT} had no associated handler,
+then no signal was caught. According to this definition, a signal with a default
+disposition cannot be caught.
+
 When a thread that is about to go to sleep inside a system call detects a
 pending signal, it returns a special error code that specifies under what
 circumstances the system call should be restarted:
@@ -2670,19 +2782,28 @@ circumstances the system call should be restarted:
 \item \Verb{ERESTARTNOHAND}: restart the system call if and only if no signal
   was caught.
 \end{itemize}
-Linux defines two more error codes like this (\Verb{ERESTARTNOINTR} and
-\Verb{ERESTART_RESTARTBLOCK}), but at the time of writing they are not needed to
-implement any system call in the Mimiker kernel, so they have not been included.
+Consequently, if a system call returns \Verb{ERESTARTSYS} or
+\Verb{ERESTARTNOHAND}, and the only signals handled at the userspace boundary
+are \Verb{SIGSTOP} followed by \Verb{SIGCONT} (without a handler), then the
+system call will be restarted in the same way it would be if there were no
+signals to handle at all.
 
-Note that a signal is \textit{caught} only if its handler is executed. Therefore,
-if a thread is stopped using \Verb{SIGSTOP} and resumed using \Verb{SIGCONT},
-assuming \Verb{SIGCONT} had no associated handler, then no signal was caught.
-Consequently, if a system call returns \Verb{ERESTARTSYS}, and the only signals
-handled at the userspace boundary are \Verb{SIGSTOP} followed by \Verb{SIGCONT}
-(without a handler), then the system call will be restarted in the same way it
-would be if there were no signals to handle at all.
+Linux defines two more error codes like this, but at the time of writing they
+are not needed to implement any system call in the Mimiker kernel, so they have
+not been included:
+\begin{itemize}
+\item \Verb{ERESTARTNOINTR}: always restart the system call;
+\item \Verb{ERESTART_RESTARTBLOCK}: like \Verb{ERESTARTSYS}, except when
+  restarting, the interrupted system call is replaced with
+  \Verb{restart_syscall()}\cite{restart-syscall}, which adjusts time-related
+  parameters (e.g. timeout duration in the case of \Verb{poll()}) before
+  restarting the original system call.
+\end{itemize}
+These error codes may be imported into Mimiker in the future, as more
+functionality finds its way into the kernel.
 
-As a concrete example, let's trace what happens when a thread inside of a
+To illustrate exactly how the Linux approach works when adapted for the Mimiker
+kernel, let's trace what happens in Mimiker when a thread inside of a
 \Verb{write()} system call on a terminal attempts to sleep interruptibly while
 having a pending \Verb{SIGSTOP} signal:
 \begin{enumerate}
@@ -2795,7 +2916,7 @@ of the kernel (e.g. signal handling), the per-terminal \Verb{t_lock} embedded in
 the \Verb{tty_t} structure had to be placed somewhere in the lock ordering. This
 posed some problems, as the following example illustrates.
 
-Consider what happens when a session leader terminates. If the session has an
+Consider what happens when a session leader terminates. If the session has a
 controlling terminal, and the terminal has a foreground process group, then
 every process in the foreground process group should receive a \Verb{SIGHUP}
 signal. In order to access a process's session structure and its controlling
@@ -2817,10 +2938,11 @@ Now that we have established that \Verb{all_proc_mtx} $<$ \Verb{t_lock} $<$
 processing. If the \Verb{ISIG} terminal flag is set, we must send a signal to
 every process in the foreground process group in response to certain control
 characters. Understandably, character processing happens while holding
-\Verb{t_lock}. In order to send a signal to the foreground process group, we
-must acquire \Verb{all_proc_mtx} and the group's \Verb{pg_lock}. However, note
-that acquiring \Verb{all_proc_mtx} while holding \Verb{t_lock} would violate the
-ordering!
+\Verb{t_lock}, so that other threads can't change the terminal settings in the
+middle of processing. In order to send a signal to the foreground process group,
+we must acquire \Verb{all_proc_mtx} and the group's \Verb{pg_lock}. However,
+note that acquiring \Verb{all_proc_mtx} while holding \Verb{t_lock} would
+violate the ordering!
 
 Several bad solutions quickly come to mind:
 \begin{itemize}
