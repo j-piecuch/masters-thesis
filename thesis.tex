@@ -1816,7 +1816,8 @@ Next, we \ref{f3} check whether the input queue contains any characters. The
 \Verb{read()} system call is blocking (at least by default), so if no data is
 available, the calling thread is put to sleep awaiting data. This is why, if the
 input queue is empty, we go on to \ref{f4} call \Verb{tty_wait()} to wait on the
-\Verb{t_incv} condition variable.
+\Verb{t_incv} condition variable. The role of the \Verb{tty_wait()} function
+will be explained at the end of this section.
 
 Once the \Verb{tty_wait()} function returns \Verb{0}, we must repeat the checks
 starting from \ref{f2}, since we may no longer be allowed to read from the
@@ -1902,6 +1903,53 @@ void tty_input(tty_t *tty, uint8_t c) {
 The \Verb{t_incv} condition variable is used by reading threads to wait for data
 in the input queue. Other than that, the listing is fairly self-explanatory, so
 we won't go into detail describing every step.
+
+This is a good moment to take a closer look at the \Verb{tty_wait()} function,
+which is used throughout the terminal layer to wait on condition variables. It
+performs extra checks to make sure that the terminal driver hasn't detached from
+the terminal while the calling thread was sleeping.
+
+\begin{listing}[H]
+\begin{minted}{c}
+static int tty_wait(tty_t *tty, condvar_t *cv) {
+  int error;
+
+@\llabel{p1}@  error = cv_wait_intr(cv, &tty->t_lock);
+
+@\llabel{p2}@  if (tty_detached(tty))
+    return ENXIO;
+
+  /* Did we receive a signal while sleeping? */
+@\llabel{p3}@  if (error == EINTR)
+    return ERESTARTSYS;
+
+  return error;
+}
+
+\end{minted}
+\caption{\Verb{kern/tty.c}: definition of \Verb{tty_wait()}.}
+\end{listing}
+
+The function first \ref{p1} sleeps on the given condition variable. Note that it
+passes \Verb{&tty->t_lock} as the second argument to \Verb{cv_wait_intr()}, so
+the lock on the \Verb{tty} terminal is released before going to sleep. After
+being woken up, the \Verb{cv_wait_intr()} function acquires the lock before
+returning. However, note that almost anything could have happened to the
+terminal while we were sleeping, since we were not holding the terminal's
+\Verb{t_lock}. Most importantly, the associated driver might have detached from
+the terminal, in which case we must disallow any further I/O. Therefore,
+immediately after waking up we \ref{p2} check whether the driver has detached
+and return an error code if it has.
+
+Instead of being woken up by another thread signaling the condition variable, it
+is also possible that we were woken up by receiving a signal that needs
+handling. In other words, our sleep was \textit{interrupted} (that's what the
+\Verb{intr} in \Verb{cv_wait_intr() stands for} --- \textit{interruptible}). At
+\ref{p3} we check whether our sleep was interrupted by a signal. If it was, we
+return \Verb{ERESTARTSYS}, which is a special return value that will cause the
+system call to be restarted if it turns out that no signal has been caught.
+This special return value is explained in more detail in
+Section~\ref{chap:sleep-stop}.
 
 \subsubsection{Terminal output}
 
@@ -2677,7 +2725,7 @@ requirements. The last challenge described involves working around Mimiker's
 lack of \Verb{poll()}\cite{poll} and \Verb{select()}\cite{select} functionality
 when porting the \Verb{tetris} program.
 
-\section{Interruptible sleep and stop signals}
+\section{Interruptible sleep and stop signals}\label{chap:sleep-stop}
 
 When a process performs certain I/O operations (e.g. reading from a terminal),
 if the data isn't immediately available, the calling thread will \textit{sleep}
