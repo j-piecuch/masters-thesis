@@ -2285,16 +2285,16 @@ flow, labelled with numbers:
 \item The thread executing the \Verb{write()} system call copies the characters
   from the userspace buffer (1), processes them, and puts them in the terminal's
   output queue (2);
-\item The UART worker thread transfers characters between the output queue and
-  the UART transmit buffer (3) or writes them directly to the UART hardware,
-  bypassing the transmit buffer (10). It also takes characters from the UART
-  receive buffer and processes them (6). Characters echoed during input
+\item The UART driver's worker thread transfers characters between the output
+  queue and the UART transmit buffer (3) or writes them directly to the UART
+  hardware, bypassing the transmit buffer (10). It also takes characters from
+  the UART receive buffer and processes them (6). Characters echoed during input
   processing go through output processing (9) and into the output queue (2).
   After input processing, the worker thread puts the characters in the
   terminal's input queue (7);
-\item The UART interrupt service routine writes characters from the UART
-  transmit buffer to the UART hardware (4) and puts characters received from the
-  UART hardware into the receive buffer (5);
+\item The UART driver's interrupt service routine writes characters from the
+  UART transmit buffer to the UART hardware (4) and puts characters received
+  from the UART hardware into the receive buffer (5);
 \item The thread executing the \Verb{read()} system call copies characters from
   the terminal's input queue to the userspace buffer (8).
 \end{itemize}
