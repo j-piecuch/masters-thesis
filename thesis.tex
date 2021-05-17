@@ -3102,7 +3102,7 @@ to be protected by \Verb{all_proc_mtx}, so that requirement also needed to be
 changed. 
 
 The first issue was resolved by using the parent process's \Verb{p_lock} to
-synchronize the waiting thread with the notifying thread. The
+synchronize the parent thread with the thread sending the signal. The
 \Verb{PF_CHILD_STATE_CHANGED} flag is set in the parent process to tell it that
 a child process's state has changed.
 
