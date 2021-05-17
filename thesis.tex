@@ -2278,11 +2278,30 @@ performed output synchronously, we would still need a worker thread to do the
 input processing.
 
 The flow of data between the terminal layer's queues, the UART driver's buffers
-and the UART device is shown in figure \ref{fig:term-hilevel-uart}.
+and the UART device is shown in figure \ref{fig:term-hilevel-uart}. In the
+figure, different ``agents'' are responsible for different parts of the data
+flow, labelled with numbers:
+\begin{itemize}
+\item The thread executing the \Verb{write()} system call copies the characters
+  from the userspace buffer (1), processes them, and puts them in the terminal's
+  output queue (2);
+\item The UART worker thread transfers characters between the output queue and
+  the UART transmit buffer (3) or writes them directly to the UART hardware,
+  bypassing the transmit buffer (10). It also takes characters from the UART
+  receive buffer and processes them (6). Characters echoed during input
+  processing go through output processing (9) and into the output queue (2).
+  After input processing, the worker thread puts the characters in the
+  terminal's input queue (7);
+\item The UART interrupt service routine writes characters from the UART
+  transmit buffer to the UART hardware (4) and puts characters received from the
+  UART hardware into the receive buffer (5);
+\item The thread executing the \Verb{read()} system call copies characters from
+  the terminal's input queue to the userspace buffer (8).
+\end{itemize}
 
-\begin{figure}[h]
+\begin{figure}[H]
   \centering
-  \includegraphics[width=\textwidth, keepaspectratio]{img/term-hilevel-uart}
+  \includegraphics[width=\textwidth, keepaspectratio]{img/term-hilevel-uart-new}
   \caption{Data flow between the terminal layer's queues, the UART driver's
     buffers and the UART device.}
   \label{fig:term-hilevel-uart}
