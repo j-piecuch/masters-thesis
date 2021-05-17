@@ -2853,6 +2853,12 @@ to this approach:
   program could use this technique to prevent all other processes from writing
   to a terminal.
 \end{itemize}
+The curious reader can read the relevant FreeBSD (version 13.0) source code: the
+\href{https://github.com/freebsd/freebsd-src/blob/releng/13.0/sys/kern/kern_sig.c#L2522}{\Verb{sig_suspend_threads()}}
+function found in \Verb{sys/kern/kern_sig.c}\footnote{The FreeBSD source code is
+  available at \url{https://github.com/freebsd/freebsd-src}.} is responsible for
+stopping the threads of a process. It is called when sending the process a stop
+signal.
 
 The second approach, used in the Linux kernel, avoids the drawbacks of the first
 approach:
@@ -2895,6 +2901,13 @@ are \Verb{SIGSTOP} followed by \Verb{SIGCONT} (without a handler), then the
 system call will be restarted in the same way it would be if there were no
 signals to handle at all.
 
+For an example of how the \Verb{ERESTARTSYS} error code is used in the Linux
+kernel, see line 2238 of file
+\href{https://elixir.bootlin.com/linux/v5.12.4/source/drivers/tty/n_tty.c#L2238}{\Verb{drivers/tty/n_tty.c}}\footnote{The
+  Linux kernel source code is available at \url{https://elixir.bootlin.com/linux/v5.12.4/source}.}
+in Linux 5.12.4. Before sleeping, the \Verb{n_tty_read()} function checks for
+pending signals and returns \Verb{-ERESTARTSYS} if a signal is pending.
+
 Linux defines two more error codes like this, but at the time of writing they
 are not needed to implement any system call in the Mimiker kernel, so they have
 not been included:
@@ -2907,7 +2920,9 @@ not been included:
   restarting the original system call.
 \end{itemize}
 These error codes may be imported into Mimiker in the future, as more
-functionality finds its way into the kernel.
+functionality finds its way into the kernel. The definition of all four special
+error codes can be found in the Linux kernel source code (version 5.12.4) in
+\href{https://elixir.bootlin.com/linux/v5.12.4/source/include/linux/errno.h}{\Verb{include/linux/errno.h}}.
 
 To illustrate exactly how the Linux approach works when adapted for the Mimiker
 kernel, let's trace what happens in Mimiker when a thread sleeping inside the
