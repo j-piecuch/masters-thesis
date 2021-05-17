@@ -3120,9 +3120,10 @@ remove \Verb{all_proc_mtx} from \Verb{sig_kill()}, we would also need to adjust
 the \Verb{wait4()} system call's code.
 
 Another complication is that in order to notify the parent, we need to access
-the \Verb{p_parent} field of the process receiving the signal. This field used
-to be protected by \Verb{all_proc_mtx}, so that requirement also needed to be
-changed. 
+the \Verb{p_parent} field of the process receiving the signal. Since this field
+is mutable (when a process terminates, it changes its children's \Verb{p_parent}
+pointer to another process), accesses to were synchronized using
+\Verb{all_proc_mtx}. This requirement also needed to be changed.
 
 The first issue was resolved by using the parent process's \Verb{p_lock} to
 synchronize the parent thread with the thread sending the signal. The
