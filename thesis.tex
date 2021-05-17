@@ -3021,26 +3021,34 @@ a deadlock from happening.
 The Mimiker kernel tries to avoid deadlocks using this method. Whenever multiple
 locks are acquired, they are acquired according to an informally defined
 ordering. During the integration of the terminal subsystem with other subsystems
-of the kernel (e.g. signal handling), the per-terminal \Verb{t_lock} embedded in
-the \Verb{tty_t} structure had to be placed somewhere in the lock ordering. This
-posed some problems, as the following example illustrates.
+of the kernel (e.g. signal handling), the per-terminal
+\Verb{t_lock}\footnote{The per-terminal \Verb{t_lock} mutex synchronizes
+  accesses to all mutable members of the \Verb{tty_t} structure, see e.g.\
+  Listing~\ref{lst:tty-do-write}.} embedded in the \Verb{tty_t} structure had to
+be placed somewhere in the lock ordering. This posed some problems, as the
+following example illustrates.
 
 Consider what happens when a session leader terminates. If the session has a
 controlling terminal, and the terminal has a foreground process group, then
 every process in the foreground process group should receive a \Verb{SIGHUP}
 signal. In order to access a process's session structure and its controlling
-terminal, the \Verb{all_proc_mtx} mutex must be held. In order to examine a
-terminal's foreground process group, the terminal's \Verb{t_lock} mutex must be
-held. Therefore, \Verb{all_proc_mtx} must be acquired first in order to look up
-the controlling terminal, and then \Verb{t_lock} must be acquired to examine the
-foreground process group. This places \Verb{all_proc_mtx} before \Verb{t_lock}
-in the lock ordering.
+terminal, the \Verb{all_proc_mtx}\footnote{The global \Verb{all_proc_mtx} mutex
+  synchronizes accesses to process-tree structures such as process groups and
+  sessions, see e.g.\ Listing~\ref{lst:pgrp-enter}.} mutex must be held. In
+order to examine a terminal's foreground process group, the terminal's
+\Verb{t_lock} mutex must be held. Therefore, \Verb{all_proc_mtx} must be
+acquired first in order to look up the controlling terminal, and then
+\Verb{t_lock} must be acquired to examine the foreground process group. This
+places \Verb{all_proc_mtx} before \Verb{t_lock} in the lock ordering.
 
 After looking up the foreground process group, we might need to send a signal to
 each process in the group using the \Verb{sig_pgkill()} function. This function
-requires both \Verb{all_proc_mtx} and the target process group's \Verb{pg_lock}
-to be held by the caller. This implies that \Verb{pg_lock} comes after
-\Verb{t_lock} and \Verb{all_proc_mtx} in the ordering.
+requires both \Verb{all_proc_mtx} and the target process group's
+\Verb{pg_lock}\footnote{The per-process-group \Verb{pg_lock} mutex synchronizes
+  accesses to the group's list of member processes, see e.g.\
+  Listing~\ref{lst:-pgrp-enter}.} to be held by the caller. This implies that
+\Verb{pg_lock} comes after \Verb{t_lock} and \Verb{all_proc_mtx} in the
+ordering.
 
 Now that we have established that \Verb{all_proc_mtx} $<$ \Verb{t_lock} $<$
 \Verb{pg_lock}, let's look at what needs to happen during terminal input
