@@ -2846,8 +2846,11 @@ to this approach:
   thread writing to a terminal may sleep (interruptibly) on a condition variable
   while having exclusive access to that terminal. If a stop signal is sent to
   that thread while it is sleeping, it won't relinquish its exclusive access
-  until it is resumed. A malicious program could use this technique to prevent
-  all other processes from writing to a terminal.
+  until it is resumed\footnote{This was an actual bug in the FreeBSD kernel
+    found by the author, see\\
+    \url{https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=255816}}. A malicious
+  program could use this technique to prevent all other processes from writing
+  to a terminal.
 \end{itemize}
 
 The second approach, used in the Linux kernel, avoids the drawbacks of the first
