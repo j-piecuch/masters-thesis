@@ -1983,6 +1983,7 @@ static int tty_wait(tty_t *tty, condvar_t *cv) {
 
 \end{minted}
 \caption{\Verb{kern/tty.c}: definition of \Verb{tty_wait()}.}
+\label{lst:tty-wait}
 \end{listing}
 
 The function first \ref{p1} sleeps on the given condition variable. Note that it
@@ -2909,26 +2910,23 @@ These error codes may be imported into Mimiker in the future, as more
 functionality finds its way into the kernel.
 
 To illustrate exactly how the Linux approach works when adapted for the Mimiker
-kernel, let's trace what happens in Mimiker when a thread inside of a
-\Verb{write()} system call on a terminal attempts to sleep interruptibly while
-having a pending \Verb{SIGSTOP} signal:
+kernel, let's trace what happens in Mimiker when a thread sleeping inside the
+\Verb{tty_wait()} function is sent a \Verb{SIGSTOP} signal:
 \begin{enumerate}
-\item In \Verb{tty_do_write()} the thread calls \Verb{tty_output_sleep()}, which
-  finds out the terminal output queue full and calls \Verb{tty_wait()} to sleep
-  on the condition variable \Verb{t_outcv}.
-\item The \Verb{cv_wait_intr()} function, used to sleep on the condition
-  variable, calls \Verb{sleepq_wait_timed()}, which is the main kernel function
-  used to go to sleep.
-\item The \Verb{sleepq_wait_timed()} function checks the current thread's
-  \Verb{TDF_NEEDSIGCHK} flag, which indicates that there is a pending signal. If
-  the flag is set, the function immediately returns \Verb{EINTR}.
-\item The \Verb{EINTR} error code is propagated to \Verb{tty_wait()}, which
-  converts it to \Verb{ERESTARTSYS}.
-\item The \Verb{ERESTARTSYS} error code is propagated through the call stack,
-  during which the exclusive terminal access gained in \Verb{tty_write()} is
-  relinquished.
-\item Before returning to userspace, in \Verb{on_user_exc_leave()}, the
-  \Verb{sig_check()} function checks for pending signals. Signals that should
+\item In \Verb{sig_kill()}, the thread sending the signal calls
+  \Verb{sleepq_abort()} on the sleeping thread, interrupting its sleep (see
+  Listing~\ref{lst:sig-kill}).
+\item The \Verb{cv_wait_sig()} function called by the sleeping thread returns
+  \Verb{EINTR}, indicating the sleep was interrupted.
+\item The \Verb{tty_wait()} function converts the \Verb{EINTR} error code to
+  \Verb{ERESTARTSYS} (see Listing~\ref{lst:tty-wait}).
+\item The \Verb{ERESTARTSYS} error code is propagated through the call stack. If
+  the interrupted thread had previously gained exclusive access to the terminal
+  in \Verb{tty_write()}, it relinquishes it during this step (see
+  Listing~\ref{lst:tty-write}).
+\item Before returning to userspace, in \Verb{on_user_exc_leave()} (see
+  Listing~\ref{lst:on-user-exc-leave}), the \Verb{sig_check()} function checks
+  for pending signals (see Listing~\ref{lst:sig-check}). Signals that should
   stop or kill the receiving process are handled immediately inside
   \Verb{sig_check()}. In our case the only pending signal is \Verb{SIGSTOP}, so
   this is where the thread is stopped.
@@ -2942,12 +2940,17 @@ having a pending \Verb{SIGSTOP} signal:
   return value (\Verb{ERESTARTSYS} in our case), is passed to
   \Verb{set_syscall_retval()}. This function handles the special return codes
   and arranges for the system call to be restarted if needed. According to the
-  semantics of \Verb{ERESTARTSYS}, since no signal is to be caught, the system
-  call is arranged to be restarted by appropriately modifying the userspace
-  thread's context.
+  semantics of \Verb{ERESTARTSYS}, since no signal is caught, the system call is
+  arranged to be restarted by appropriately modifying the userspace thread's
+  context.
 \item Upon return from the kernel to userspace, the \Verb{write()} system call
   is immediately restarted.
 \end{enumerate}
+
+In conclusion, the Linux approach to handling stop signals and interruptible
+sleep is a good fit for the Mimiker kernel due to its simplicity. While its
+implementation required introducing support for restarting system calls, that
+turned out not to be a big problem.
 
 \section{Refinement of locking rules}
 
