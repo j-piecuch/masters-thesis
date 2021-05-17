@@ -989,30 +989,85 @@ signal.
 
 After a signal is sent, it remains in the pending set, waiting to be delivered.
 Signals are delivered to a process whenever control transfers from the kernel
-to that process, i.e. on transitions from the kernel to userspace. For instance,
-pending signals are delivered before returning from a system call. 
+to that process, i.e. on transitions from the kernel to userspace. Every time
+before returning to userspace, the \Verb{on_user_exc_leave()} function is
+called. This function handles signal delivery and system call restarting.
+
+\begin{listing}[H]
+\begin{minted}{c}
+void on_user_exc_leave(mcontext_t *ctx, syscall_result_t *result) {
+  thread_t *td = thread_self();
+  proc_t *p = td->td_proc;
+  int sig = 0;
+  ksiginfo_t ksi;
+
+@\llabel{q0}@  if (td->td_flags & TDF_NEEDSIGCHK) {
+    WITH_PROC_LOCK(p) {
+@\llabel{q1}@      sig = sig_check(td, &ksi);
+    }
+  }
+
+  if (result)
+@\llabel{q2}@    set_syscall_retval(ctx, result, sig);
+
+@\llabel{q3}@  while (sig) {
+    WITH_PROC_LOCK(p) {
+@\llabel{q4}@      sig_post(&ksi);
+@\llabel{q5}@      sig = sig_check(td, &ksi);
+    }
+  }
+}
+\end{minted}
+\caption{\Verb{sys/kern/exception.c}: definition of \Verb{on_user_exc_leave()}.}
+\label{lst:on-user-exc-leave}
+\end{listing}
 
 Signal delivery can be divided into two steps: checking for a pending signal,
 and \textit{posting} a signal found to be pending. Posting a signal means
 setting up the execution context of the process, so that the signal handler is
 the first thing that is executed after returning control to the process.
 
-Signals with special effects (i.e. stopping or killing a process) are not
-posted, but are instead handled as part of checking for a pending signal. This
-is an implementation choice that simplifies handling of certain edge cases.
+The first step is therefore to check for pending signals. The
+\Verb{TDF_NEEDSIGCHK} flag indicates that a signal is pending. It is set in
+\Verb{sig_kill()}, see Listing~\ref{lst:sig-kill}. We check the flag at \ref{q0}
+to avoid unnecessarily acquiring the process lock and checking the set of
+pending signals. If the flag is set, we \ref{q1} call \Verb{sig_check()}, which
+returns the signal number of a signal that needs to be posted, or \Verb{0} if no
+signal needs posting. Note that signals with special effects (i.e.\ stopping or
+killing a process) are not posted, but are instead handled inside
+\Verb{sig_check()}, as part of checking for a pending signal. This is an
+implementation choice that simplifies handling of certain edge cases.
 
-Pending signals are not checked at all if the current thread does not have the
-\Verb{TDF_NEEDSIGCHK} flag set. This flag is set in \Verb{sig_kill()}, see
-listing \ref{lst:sig-kill}. This saves us from unnecessarily checking for
-pending signals every time we return to userspace.
+Before posting pending signals, we \ref{q2} set the return value of the system
+call we're returning from using \Verb{set_syscall_retval()} (provided we're
+returning from a system call at all). Note that \Verb{on_user_exc_leave()} is
+also called when returning to userspace from an interrupt, in which case
+\Verb{result} is set \Verb{NULL} to indicate that we're not returning from a
+system call. The \Verb{set_syscall_retval()} function also restarts the system
+call if needed. More details about system call restarting are given in section
+\ref{chap:sleep-stop}.
 
-We will not describe how signals are posted, as most of the details are
-architecture-specific, and we are primarily concerned with job control signals,
-which are not posted at all (unless they have registered handlers, in which case
-they don't behave like job control signals). Instead, we will focus on the
-\Verb{sig_check()} function, which checks for pending signals and handles job
-control signals. Listing \ref{lst:sig-check} contains the source code of the
-function.
+The last step is to post all pending signals. We \ref{q3} loop as long as there
+is a signal that needs posting. Inside the loop, the currently selected signal
+is \ref{q4} posted and \ref{q5} another signal is selected. We will not describe
+how signals are posted, as most of the details are architecture-specific, and we
+are primarily concerned with job control signals, which are not posted at all
+(unless they have registered handlers, in which case they don't behave like job
+control signals).
+
+The control flow inside \Verb{on_user_exc_leave()} may seem confusing, but there
+is a reason for it. The main issue is that \Verb{set_syscall_retval()} must know
+whether a signal will be posted (note \Verb{sig} being passed as an argument to
+it), but it must also be called \textit{before} \Verb{sig_post()}. The reason is
+that \Verb{set_syscall_retval()} modifies the context of the userspace thread
+that invoked the system call, and \Verb{sig_post()} also modifies the context to
+arrange for the signal handler to be called. The modifications made by
+\Verb{set_syscall_retval()} must precede the ones made by \Verb{sig_post()},
+hence the somewhat convoluted control flow.
+
+Let us now focus on the \Verb{sig_check()} function, which checks for pending
+signals and handles job control signals. Listing \ref{lst:sig-check} contains
+the source code of the function.
 
 \begin{listing}[H]
 \begin{minted}{c}
