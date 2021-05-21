@@ -1,7 +1,9 @@
 \RequirePackage{xcolor}
 \documentclass[shortabstract, manyadvisors, english, mgr]{iithesis}
 \usepackage[utf8]{inputenc}
-\usepackage{minted, fancyvrb, epigraph, xurl, pifont, graphicx, multicol}
+\usepackage{minted, fancyvrb, epigraph, xurl, pifont, graphicx, multicol,
+  threeparttable, booktabs, makecell, chngpage}
+\renewcommand\theadfont{\bfseries}
 
 \englishtitle{Implementation of the Terminal Subsystem \\ and Job Control \\
   in the Mimiker Operating System}
@@ -47,7 +49,8 @@
 }
 \makeatother
 
-\setminted[c]{fontsize=\small, frame=lines, baselinestretch=1.1, stdlibhighlighting=false,
+\setminted{frame=lines, baselinestretch=1.1}
+\setminted[c]{fontsize=\small, stdlibhighlighting=false,
   c99highlighting=false, c11highlighting=false, platformhighlighting=false, escapeinside=@@}
 
 \renewcommand\linenumberfont{\normalfont\bfseries\large}
@@ -169,8 +172,375 @@ the operating system. The shell puts different jobs in different process groups.
 
 \section{Introduction to the Mimiker kernel}
 TODO
-\subsection{Synchronization primitives}
-TODO
+\subsection{Synchronization primitives}\label{chap:locking-intro}
+
+\subsubsection{Introduction to locking}
+
+With multiple threads executing concurrently and manipulating shared data,
+ensuring that the data structures are always in a consistent state becomes a
+crucial matter. As a toy example of what can go wrong, consider a data structure
+with two fields bound by an invariant: the values of the two fields must always
+be the same.
+\begin{listing}[H]
+\begin{minted}{c}
+struct foo {
+  /* x and y must be equal */
+  int x;
+  int y; 
+}
+\end{minted}
+\end{listing}
+
+Let us now imagine two threads sharing an instance of \Verb{struct foo} called
+\Verb{shared_foo}: one is modifying its contents, while the other is just
+reading it.
+\begin{listing}[H]
+\begin{multicols}{2}\centering
+Thread 1
+\begin{minted}{c}
+void thread1(void) {
+  shared_foo.x++;
+  shared_foo.y++;
+}
+\end{minted}
+Thread 2
+\begin{minted}{c}
+void thread2(void) {
+  int x = shared_foo.x;
+  int y = shared_foo.y;
+  assert(x == y);
+}
+\end{minted}
+\end{multicols}
+\caption{Example code of two threads modifying and reading a shared data structure.}
+\label{lst:shared-foo}
+\end{listing}
+
+Notice that thread 1 appears to preserve the structure's invariant: if the
+invariant is true prior to its execution, then it will be true after thread 1
+executes. Looking at thread 2, its assertion should always pass thanks to the
+invariant associated with the structure. However, issues start to appear as soon
+as thread 1 is run concurrently with thread 2. Consider the following series of
+events:
+\begin{listing}[H]
+\begin{minted}{c}
+/* Thread 2: */
+int x = shared_foo.x; /* value read = 0 */
+/* Thread 1: */
+shared_foo.x++;
+shared_foo.y++;
+/* Thread 2: */
+int y = shared_foo.y; /* value read = 1 */
+assert(x == y);       /* Boom! */
+\end{minted}
+\end{listing}
+As we can see, thread 1 observed a state of the \Verb{shared_foo} structure
+which violates the invariant, because it was modified by thread 2 in the middle
+of thread 1 reading it. Clearly, something must be done to prevent this.
+
+A common solution to this problem is to \textit{synchronize} the threads to
+ensure that when a thread is modifying the structure, no other threads are
+accessing it concurrently. Synchronization between threads is accomplished using
+\textit{synchronization primitives}, with \textit{locks} being the most commonly
+used category of primitives.
+
+Arguably the simplest kind of lock is a \textit{mutex}, which stands for
+\textit{mutual exclusion}. A minimal mutex provides two operations:
+\textit{acquire}/\textit{lock} and \textit{release}/\textit{unlock}. Between the
+time a thread acquires and releases a mutex, it is said to \textit{hold} or
+\textit{own} the mutex. The crucial point about mutexes is that for any mutex,
+\textbf{at most one thread may hold that mutex at any given time} --- this is
+what mutual exclusion is all about. If a thread attempts to acquire a mutex that
+is already held by another thread, it will \textit{block} (i.e. stop executing)
+waiting for the holder of the mutex to release it.
+
+Let's try to solve our problem with concurrent accesses to \Verb{struct foo}
+using a mutex. Let's call it \Verb{foo_mtx}. The function used to
+acquire/release a mutex is \Verb{mtx_lock()}/\Verb{mtx_unlock()}.
+\begin{listing}[H]
+\begin{multicols}{2}
+  \begin{center}
+    Thread 1
+  \end{center}
+\begin{minted}{c}
+void thread1(void) {
+  mtx_lock(&foo_mtx);
+  shared_foo.x++;
+  shared_foo.y++;
+  mtx_unlock(&foo_mtx);
+}
+\end{minted}
+  \begin{center}
+    Thread 2
+  \end{center}
+\begin{minted}{c}
+void thread2(void) {
+  mtx_lock(&foo_mtx);
+  int x = shared_foo.x;
+  int y = shared_foo.y;
+  mtx_unlock(&foo_mtx);
+  assert(x == y);
+}
+\end{minted}
+\end{multicols}
+\caption{Example code of two threads modifying and reading a shared data
+structure protected by a mutex.}
+\label{lst:shared-foo-mtx}
+\end{listing}
+
+Now it's impossible for thread 1 to modify the \Verb{shared_foo} structure
+between thread 2 reading \Verb{shared_foo.x} and \Verb{shared_foo.y}. Likewise,
+thread 2 can't access the structure while thread 1 is in the middle of modifying
+it. The mutex ensures that all accesses to the structure are
+\textit{serialized}, i.e. they happen one after another, never concurrently. As
+long as all accesses to the structure are made while holding \Verb{foo_mtx}, all
+readers are guaranteed to see a consistent state (i.e. they won't see an
+intermediate state, where the structure is in the middle of being modified).
+
+Now that we have covered the basics of locking, let us move on to how locks are
+used in the Mimiker kernel.
+
+\subsubsection{Locking in the Mimiker kernel}
+
+Locking is the primary strategy used in the Mimiker kernel to ensure that shared
+data structures remain in a consistent state. It is common for a data type to
+include a lock which is protects access to at least some of its members. For
+instance, the \Verb{tty_t} structure (see Listing~\ref{lst:tty-t}) includes a
+member \Verb{t_lock} of type \Verb{mtx_t}, which is the type of mutexes in
+Mimiker. Holding a terminal structure's \Verb{t_lock} is required to access any
+of its other fields.
+
+There are currently two types of locks used in the Mimiker kernel:
+\textit{mutexes} and \textit{spinlocks}. Their behaviour is heavily inspired by
+the design of corresponding locks in the FreeBSD kernel \cite{freebsd-locking}.
+They seem similar on the surface, in that they are both mutually exclusive
+locks, i.e. only one thread may hold a mutex or spinlock at a time. However,
+they are used for different purposes:
+\begin{itemize}
+\item Mutexes are used to synchronize threads with other threads;
+\item Spinlocks are used to synchronize threads with interrupt service routines
+  (ISRs), or to synchronize ISRs with other ISRs running on different CPUs.
+\end{itemize}
+An ISR is a very short piece of code that is run in response to a
+\textit{hardware interrupt}. Interrupts are a means for devices to request
+attention from the CPU. For instance, a network adapter may interrupt the CPU to
+notify it that a new packet has arrived. It is crucial that an ISR executes as
+soon as possible, and takes as short as possible to complete, in order to keep
+up with the device feeding the data.
+
+Mutexes are a poor fit for ISRs for several reasons, one of which is that
+blocking on a mutex introduces latency between one thread releasing it and the
+blocked thread acquiring it. Spinlocks remedy this by using \textit{spinning},
+also called \textit{busy waiting}, instead of blocking. When a thread spins, it
+keeps checking the status of a lock (i.e. whether it is held by someone else or
+not), and it does not voluntarily stop executing, as is the case when blocking.
+The drawback of this approach is that when spinning, the CPU is not doing any
+useful work, so spinlocks should be held for very short amounts of time. Due to
+this requirement, acquiring a mutex while holding a spinlock is strictly forbidden.
+
+Another significant difference between mutexes and spinlocks is a feature called
+\textit{priority propagation}. In essence, it boosts the scheduling priority of
+the owner of a lock if a higher-priority thread is waiting for that lock. This
+solves the problem of \textit{priority inversion}. For more information about
+priority inversion, as well as the implementation of priority propagation in the
+Mimiker kernel, see \cite{julian-thesis}. Table \ref{tab:mutex-spinlock}
+provides a summary of the differences between mutexes and spinlocks in the
+Mimiker kernel.
+
+\begin{table}[h]\centering
+\begin{threeparttable}
+\begin{tabular}{|l|c|c|}
+  \hline
+  & \thead{Mutex} & \thead{Spinlock} \\
+  \hline
+  \hline
+  Waiting method & blocking & spinning \\
+  \hline
+  Disables interrupts & no & yes \\
+  \hline
+  Can use in ISR & no & yes \\
+  \hline
+  Can acquire while holding mutex & yes\tnote{*} & yes \\
+  \hline
+  Can acquire while holding spinlock & no & yes\tnote{*} \\
+  \hline
+  Priority propagation & yes & no \\
+  \hline      
+\end{tabular}
+\begin{tablenotes}\footnotesize
+\item[*] Subject to lock ordering constraints, see Section~\ref{chap:locking-rules}.
+\end{tablenotes}
+\end{threeparttable}
+\caption{Summary of differences between mutexes and spinlocks in the Mimiker kernel.}
+\label{tab:mutex-spinlock}
+\end{table}
+
+In Mimiker source code, the \Verb{mtx_t} data type represents a mutex, while
+\Verb{spin_t} represents a spinlock. A mutex is acquired using the
+\Verb{mtx_lock()} function, which takes a pointer to \Verb{mtx_t} as an
+argument. To release a mutex, the \Verb{mtx_unlock()} function is used, which
+takes a pointer to an owned mutex. For spinlocks, the corresponding functions
+are \Verb{spin_lock()} and \Verb{spin_unlock()}, which take a pointer to
+\Verb{spin_t} as an argument. 
+
+Two convenience macros are available that can make working with locks a bit
+easier, although one still needs to be careful. The \Verb{WITH_MTX_LOCK()}
+acquires a mutex and automatically releases it upon exit from the block
+following the macro. (delimited by \Verb|{| and \Verb|}|). Similarly, the
+\Verb{SCOPED_MTX_LOCK()} macro acquires a mutex and automatically releases it
+upon exit from the scope immediately enclosing the macro's invocation. It is
+commonly used to acquire a mutex for the entire duration of a function. The
+\Verb{WITH_SPIN_LOCK()} and \Verb{SCOPED_SPIN_LOCK()} macros do the same thing
+for spinlocks. Listing~\ref{lst:lock-macros} shows example usage of these
+macros. Each code sample in the listing is equivalent with respect to locking.
+
+\begin{listing}[H]
+\begin{adjustwidth}{-1.5cm}{-1.5cm}\centering
+\begin{multicols}{3}
+\begin{minted}[frame=single]{c}
+bool maybe_do_something() {
+  mtx_lock(&foo_mtx);
+  if (!can_do_something()) {
+    mtx_unlock(&foo_mtx);
+    return false;
+  }
+  do_something();
+  mtx_unlock(&foo_mtx);
+  return true;
+}
+\end{minted}
+\begin{minted}[frame=single]{c}
+bool maybe_do_something() {
+  WITH_MTX_LOCK(&foo_mtx) {
+    if (!can_do_something())
+      return false;
+    do_something();
+  }
+  return true;
+}
+@\phantom@
+@\phantom@
+\end{minted}
+\begin{minted}[frame=single]{c}
+bool maybe_do_something() {
+  SCOPED_MTX_LOCK(&foo_mtx);
+  if (!can_do_something())
+    return false;
+  do_something();
+  return true;
+}
+@\phantom@
+@\phantom@
+@\phantom@
+\end{minted}
+\end{multicols}
+\end{adjustwidth}
+\caption{Comparison between using the \Verb{mtx_lock()}/\Verb{mtx_unlock()}
+functions directly, using the \Verb{WITH_MTX_LOCK()} macro, and using the
+\Verb{SCOPED_MTX_LOCK()} macro.}
+\label{lst:lock-macros}
+\end{listing}
+
+\subsubsection{Condition variables}
+
+In the Mimiker kernel, a thread may arrive at a point where it must wait for an
+event that may happen at some time in the future. For instance, consider
+multiple producer and consumer threads sharing a buffer. The producer puts data
+into the buffer, while consumers take data from the buffer and do something with
+it. Since the buffer is a data structure shared by multiple threads, it must be
+protected by a lock. A mutex is a good choice, since no ISRs are involved.
+
+Now, consider what happens when a consumer tries to take some data from the
+buffer, but finds out that the buffer is empty. It must somehow wait for a
+producer to put some data into the buffer. The consumer could just continuously
+keep checking whether the buffer is empty, making sure to release the mutex
+protecting the buffer between retries, so that the producer gets a chance to put
+data in. This approach is very similar to the spinning performed when waiting
+for a spinlock to become released, in that it wastes CPU cycles doing nothing.
+Clearly, a more efficient alternative is needed.
+
+\textit{Condition variables} are a very useful synchronization primitive that
+can be used in our example. Generally speaking, they are used whenever a thread
+must wait for some condition to become true, hence the name. A typical condition
+variable provides three operations: \textit{wait}, \textit{signal}, and
+\textit{broadcast}. The wait operation accepts a condition variable and a lock,
+and it atomically releases the lock and suspends execution of the thread
+invoking the operation. Thanks to its atomicity, when another thread
+subsequently acquires the same lock, the waiting thread is guaranteed to be
+suspended. This prevents events known as \textit{lost wakeups} from occurring.
+The signal operation is used to wake up at most one thread waiting on a
+condition variable, while the broadcast operation wakes up all threads waiting
+on a condition variable. When a waiting thread is woken up, it automatically
+acquires the lock passed to the \Verb{cv_wait()} function.
+
+Let's see how condition variables could be used to solve our problem with
+consumers waiting for data in a buffer. Assume the buffer is protected using a
+mutex called \Verb{buf_mtx}, and the condition variable for consumers is called
+\Verb{nonempty_cv}. In Mimiker, the condition variable operations are
+implemented by the functions \Verb{cv_wait()}, \Verb{cv_signal()}, and
+\Verb{cv_broadcast()}. Listing~\ref{lst:prod-cons} provides example source code
+for the consumer and producer threads.
+
+\begin{listing}[H]
+\begin{multicols}{2}
+\begin{minted}{c}
+void consumer(void) {
+  int data;
+@\llabel{r1}@  while (true) {
+@\llabel{r2}@    mtx_lock(&buf_mtx);
+@\llabel{r3}@    while (buf_empty())
+@\llabel{r4}@      cv_wait(&nonempty_cv, &buf_mtx);
+@\llabel{r5}@    data = buf_get_data();
+@\llabel{r6}@    cv_broadcast(&nonfull_cv);
+@\llabel{r7}@    mtx_unlock(&buf_mtx);
+@\llabel{r8}@    consume_data(data);
+  }
+}
+\end{minted}
+\begin{minted}{c}
+void producer(void) {
+  int data;
+  while (true) {
+    data = produce_data();
+    mtx_lock(&buf_mtx);
+    while (buf_full())
+      cv_wait(&nonfull_cv, &buf_mtx);
+    buf_put_data(data);
+    cv_broadcast(&nonempty_cv);
+    mtx_unlock(&buf_mtx);
+  }
+}
+\end{minted}
+\end{multicols}
+\caption{Producer and consumer threads synchronizing using mutexes and condition
+variables.}
+\label{lst:prod-cons}
+\end{listing}
+
+Let's go step-by-step through the \Verb{consumer()} function. Each consumer
+thread executes an \ref{r1} infinite loop, taking a piece of data from the
+buffer and consuming it. Before checking whether the buffer is empty, we must
+\ref{r2} acquire \Verb{buf_mtx}, since we are accessing a shared data structure.
+As long as \ref{r3} the buffer is empty, we \ref{r4} wait on the
+\Verb{nonempty_cv} condition variable, releasing \Verb{buf_mtx} at the same
+time.
+
+Notice that line \ref{r3} is a \Verb{while} loop, not an \Verb{if} statement!
+That's because if there are multiple consumers waiting on \Verb{nonempty_cv}, we
+may not be the first thread that gets to read data from the buffer after a
+\Verb{cv_broadcast()} from the producer. The consumer before us may empty the
+buffer, therefore we cannot assume that the buffer is not empty after being
+woken up.
+
+Once we find that the buffer is not empty, we \ref{r5} read a piece of data from
+the buffer. Naturally, we need to hold \Verb{buf_mtx} for that operation. Once
+we have read the data, we \ref{r6} wake up any producers waiting for space to
+become available in the buffer. Finally, we \ref{r7} release the mutex and
+\ref{r8} process the data read from the buffer.
+
+This section provided an introduction to synchronization primitives found in
+source code listings throughout this thesis. It will hopefully make the reader
+less confused when reading through code making use of them.
 
 \chapter{Job Control}
 
@@ -1655,6 +2025,7 @@ typedef struct tty {
 } tty_t;
 \end{minted}
 \caption{\Verb{include/sys/tty.h}: definition of \Verb{tty_t}.}
+\label{lst:tty-t}
 \end{listing}
 
 The \Verb{t_lock} mutex synchronizes access to the structure.
@@ -2986,25 +3357,22 @@ sleep is a good fit for the Mimiker kernel due to its simplicity. While its
 implementation required introducing support for restarting system calls, that
 turned out not to be a big problem.
 
-\section{Refinement of locking rules}
+\section{Refinement of locking rules}\label{chap:locking-rules}
 
-As explained in section \ref{chap:locking-intro} (TODO: write the chapter we're
-referring to here), locking primitives such as mutexes are used to synchronize
-concurrent accesses to members of data structures that are shared between
-threads. When using these locking primitives, care must be taken to prevent
-\textit{deadlocks}. A deadlock occurs when a group of two or more threads is
-stuck, with each thread in the group waiting for a resource that is held by
-another thread in the group.
+As explained in section \ref{chap:locking-intro}, locking primitives such as
+mutexes are used to synchronize concurrent accesses to members of data
+structures that are shared between threads. When using these locking primitives,
+care must be taken to prevent \textit{deadlocks}. A deadlock occurs when a group
+of two or more threads is stuck, with each thread in the group waiting for a
+resource that is held by another thread in the group.
 
 The simplest example of a deadlock is when two threads each attempt to acquire
 two mutexes: \Verb{mtx_a} and \Verb{mtx_b}, with thread 1 acquiring the mutexes
 in a different order than thread 2. Listing \ref{lst:deadlock} shows example
 code for the threads.
 \begin{listing}[h]
-\begin{multicols}{2}
-\begin{center}
-  Thread 1
-\end{center}
+\begin{multicols}{2}\centering
+Thread 1
 \begin{minted}{c}
 void thread1(void) {
   mtx_lock(mtx_a);
@@ -3014,9 +3382,7 @@ void thread1(void) {
   mtx_unlock(mtx_a);
 }
 \end{minted}
-\begin{center}
-  Thread 2
-\end{center}
+Thread 2
 \begin{minted}{c}
 void thread2(void) {
   mtx_lock(mtx_b);
