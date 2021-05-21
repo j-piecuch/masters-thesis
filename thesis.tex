@@ -3650,6 +3650,203 @@ and \Verb{tetris} is fully playable on the Mimiker OS.
 
 \chapter{Conclusion}
 
+This chapter lays out instructions on how to compile and run the Mimiker OS, as
+well as test some use cases enabled by proper support for job control and the
+terminal subsystem. Finally, the author's contributions to Mimiker and other
+projects are summarized.
+
+\section{Compilation and usage instructions}
+This section presents step-by-step instructions on how to compile and run
+Mimiker, as well as some shell commands that showcase the functionality
+implemented by the author. The \Verb{git} and \Verb{docker} programs are assumed
+to be installed on the reader's system.
+
+\subsection*{Compiling Mimiker}
+
+\begin{enumerate}
+\item Get the source code.\\
+  The following command will download the Mimiker sources into the \Verb{mimiker}
+  subdirectory of the current working directory:\\
+  \Verb{git clone --depth 1 https://github.com/cahirwpz/mimiker}
+\item Download the development environment.\\
+  \Verb{docker pull jpiecuch96/mimiker-dev}
+\item Run a shell inside the development environment.\vspace{0.5em}\\
+\begin{BVerbatim}
+docker run --rm -it -u 1000 -v $PWD/mimiker:/mimiker -w /mimiker \
+  jpiecuch96/mimiker-dev bash
+\end{BVerbatim}
+  \\
+  Note: this command should be run in the directory containing the
+  \Verb{mimiker} subdirectory. Also, the reader's user ID is assumed to be 1000
+  (which is the case on most systems).\\
+\item Compile Mimiker.\\
+  Run the following command in the shell inside the development
+    environment:\\
+  \Verb{make -j$(nproc)}\\
+  If the command fails for whatever reason, try running it again without the
+  \Verb{-j} option.
+\end{enumerate}
+
+\subsection*{Running Mimiker}
+
+To run a shell inside Mimiker, run the following command in the shell
+inside the development environment:\\
+\Verb{./launch init=/bin/ksh}\\
+This should open a \Verb{tmux} session with the \Verb{ksh} shell running in the
+active window. We can now run various commands inside Mimiker.
+
+\subsection*{Terminal commands}
+
+This section presents some terminal commands that make use of Mimiker's job
+control capabilities or the terminal subsystem.
+
+\subsubsection*{Terminal access control based on background process groups}
+
+\begin{enumerate}
+\item List current terminal settings:\\
+  \Verb{stty -a}\\
+  The output contains \Verb{-tostop}, which indicates that the \Verb{TOSTOP}
+  flag is not set. This means that a process in a background process group
+  should be able to write to the terminal.
+\item Check that both background and foreground processes can write to the
+  terminal:\\
+  \Verb{echo background & echo foreground}\\
+  Both \Verb{background} and \Verb{foreground} will be output.
+\item Check that background processes are not allowed to read from the terminal:\\
+  \Verb{cat &}\\
+  The \Verb{cat} program tries to read from the terminal, but since it is in a
+  background process group, the attempt results in it being stopped by a
+  \Verb{SIGTTIN} signal. This can be verified by running the \Verb{jobs}
+  command, which will show the stopped process. It can be brought into the
+  foreground using the \Verb{fg} command, after which it can be terminated by
+  typing \Verb{^C} (Control-C).
+\item Set the \Verb{TOSTOP} terminal flag:\\
+  \Verb{stty tostop}
+\item Check that background processes are not allowed to write to the terminal:
+  \Verb{echo background & echo foreground}\\
+  This time, only \Verb{foreground} will be output. Running the \Verb{jobs}
+  command will reveal that the background process was stopped upon trying to
+  write to the terminal. If we bring it into the foreground using \Verb{fg}, 
+  \Verb{background} will be output.
+\end{enumerate}
+
+\subsubsection*{Recording a terminal session with \Verb{script}}
+
+The \Verb{script} program uses pseudoterminals to record the output of all
+programs in a terminal session. It can record the output to a plaintext file,
+or it can also record the timestamp of each output event, making it possible to
+play back the session exactly as it was recorded.
+
+\begin{enumerate}
+\item Change into the \Verb{/tmp} directory:\\
+  \Verb{cd /tmp}
+\item To record into a plaintext file, just use the command:\\
+  \Verb{script}
+\item Now type some commands, for instance:\\
+  \Verb{echo one && echo two}
+\item Type \Verb{^D} (Control-D) to end the recorded terminal session.
+\item The plaintext file with the recording is at \Verb{/tmp/typescript}:\\
+  \Verb{cat typescript}
+\item To record a session with timestamps, use the command:\\
+  \Verb{script -r}\\
+  To play it back, use:\\
+  \Verb{script -pq typescript}
+\end{enumerate}
+
+\section{Summary of contributions}
+\subsection*{Mimiker source code}
+Below is a summary of the author's code contributions to the Mimiker OS made
+as part of the overall implementation effort described in this thesis:
+\subsubsection*{Job control}
+\begin{itemize}
+\item Implementation of process stopping and continuing via signals.\\
+  Most important functions:
+  \begin{itemize}
+  \item \Verb{sys/kern/proc.c}: \Verb{proc_stop()}, \Verb{proc_continue()}
+  \item \Verb{sys/kern/signal.c}: \Verb{sig_kill()}, \Verb{sig_check()}
+  \end{itemize}
+\item Adding support to the \Verb{wait4()} system call for waiting for child
+  processes to be stopped or continued.\\
+  Most important functions:
+  \begin{itemize}
+  \item \Verb{sys/kern/proc.c}: \Verb{do_waitpid()}, \Verb{proc_wakeup_parent()}
+  \end{itemize}
+\item Implementation of POSIX sessions and the \Verb{setsid()} system call.\\
+  Most important functions:
+  \begin{itemize}
+  \item \Verb{sys/kern/proc.c}: \Verb{session_enter()}, \Verb{session_leave()}
+  \end{itemize}
+\item Expansion of the \Verb{setpgid()} system call's functionality.\\
+  Most important functions:
+  \begin{itemize}
+  \item \Verb{sys/kern/proc.c}: \Verb{pgrp_enter()}
+  \end{itemize}
+\item Implementation of orphaned process group detection.\\
+  Most important functions:
+  \begin{itemize}
+  \item \Verb{sys/kern/proc.c}: \Verb{pgrp_jobc_leave()}, \Verb{pgrp_jobc_enter()}
+  \end{itemize}
+\end{itemize}
+\subsubsection*{Terminal subsystem}
+\begin{itemize}
+\item Terminal layer: \Verb{sys/kern/tty.c}
+\item UART terminal driver: \Verb{sys/kern/uart_tty.c}, \Verb{sys/drv/uart.c}\\
+  Note: the version originally written by the author only supported the UART
+  found on the MIPS Malta development board. The code was later adapted by Paweł
+  Jasiak to be independent of any specific UART device.
+\item Pseudoterminals: \Verb{sys/kern/pty.c}
+\end{itemize}
+\subsubsection*{Signal handling}
+\begin{itemize}
+\item Implementation of the \Verb{sigprocmask()} and \Verb{sigsuspend()} system
+  calls.\\
+  Most important functions:
+  \begin{itemize}
+  \item \Verb{sys/kern/signal.c}: \Verb{do_sigprocmask()}, \Verb{do_sigsuspend()}
+  \end{itemize}
+\item Adding support for the \Verb{sa_mask} field in the \Verb{sigaction()}
+  system call.\\
+  Most important functions:
+  \begin{itemize}
+  \item \Verb{sys/kern/signal.c}: \Verb{sig_post()}, \Verb{sig_return()}
+  \end{itemize}
+\item Adding support for the \Verb{SA_RESTART} flag in the \Verb{sigaction()}
+  system call and implementation of system call restarting.\\
+  Most important functions:
+  \begin{itemize}
+  \item \Verb{sys/kern/exception.c}: \Verb{on_user_exc_leave()}, \Verb{set_syscall_retval()}
+  \end{itemize}
+\end{itemize}
+\subsubsection*{Ported programs and libraries}
+\begin{itemize}
+\item \Verb{atto}: minimal \Verb{emacs}-like text editor.
+\item \Verb{script}: records terminal input and output into a file.
+\item \Verb{libterminfo}: terminal information library.
+\item \Verb{tetris}
+\end{itemize}
+\subsubsection*{Miscellaneous}
+\begin{itemize}
+\item Management of PIDs, PGIDs and SIDs using hash tables.
+\item Extension of the \Verb{devfs} filesystem to allow for removing device nodes.
+\item Implementation of \Verb{setitimer()} and \Verb{getitimer()} system calls.
+\end{itemize}
+
+\subsection*{Other contributions}
+When reading FreeBSD source code, the author found and reported 3 bugs in the
+FreeBSD kernel:
+\begin{itemize}
+\item Bug 250701 - ``Race condition between \Verb{tty_wait_background()} and
+    \Verb{doenterpgrp()}''\\
+  \url{https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=250701}
+\item Bug 251915 - ``TOCTOU race between \Verb{tty_signal_sessleader()} and
+  \Verb{killjobc()}''\\
+  \url{https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=251915}
+\item Bug 255816 - ``tty: Potential DoS on terminal writes by stopping thread inside \Verb{ttydisc_write()}''\\
+  \url{https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=255816}
+\end{itemize}
+All the bugs have been fixed, with the last fix being committed to the
+\Verb{main} branch on the 18th of May, 2021.
+
 \bibliography{bibliography}
 \bibliographystyle{myplain}
 \end{document}
