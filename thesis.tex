@@ -2368,7 +2368,7 @@ the terminal, in which case we must disallow any further I/O. Therefore,
 immediately after waking up we \ref{p2} check whether the driver has detached
 and return an error code if it has.
 
-Instead of being woken up by another thread signaling the condition variable, it
+Instead of being woken up by another thread signalling the condition variable, it
 is also possible that we were woken up by receiving a signal that needs
 handling. In other words, our sleep was \textit{interrupted} (that's what the
 \Verb{intr} in \Verb{cv_wait_intr() stands for} --- \textit{interruptible}). At
