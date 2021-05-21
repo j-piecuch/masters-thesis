@@ -3541,8 +3541,115 @@ With these adjustments in place, the \Verb{sig_kill()} function no longer
 requires \Verb{all_proc_mtx} to be held by the caller, and it's possible to send
 a signal to the foreground process group directly from within \Verb{tty_input()}.
 
+\section{Porting \Verb{tetris} to Mimiker}
+
+With the terminal subsystem in place, Mimiker needed an application that would
+showcase its capabilities, as well as test them. The well-known game of Tetris
+seemed to be a good fit. The NetBSD operating system includes the game in its
+sources. It is written in a very simple and portable way, making it a good
+candidate for porting to the Mimiker OS. However, there were several challenge
+along the way, which will be described in this section.
+
+\subsection{The \Verb{terminfo} library}
+
+NetBSD's \Verb{tetris} program uses advanced terminal features, such as moving
+the cursor to arbitrary positions on the screen and coloured output. These
+features are implemented using \textit{escape codes}: special character
+sequences which are interpreted by the terminal device or terminal emulator.
+There is a standard set of ANSI escape
+codes\footnote{\url{https://en.wikipedia.org/wiki/ANSI_escape_code}}. For
+instance, in order to clear the entire screen on a terminal device supporting
+the ANSI escape codes, a program would output the sequence \Verb{^[[2J}, where
+\Verb{^[} stands for the \textit{escape} character, whose ASCII code is
+\Verb{0x1B}.
+
+Some terminal devices and terminal emulators do not strictly conform to the ANSI
+escape code standard. They may implement extra functionality using custom escape
+codes, or use different escape codes for functionality that is part of the
+standard. This is clearly a problem when trying to write programs that use
+advanced terminal features, as supporting all the different escape codes quickly
+becomes a pain. This is where the \Verb{terminfo}\cite{libterminfo} library, or
+simply \Verb{libterminfo}, comes in to save the day.
+
+The \Verb{terminfo} library provides a portable way of accessing
+terminal-related information, such as escape codes. To this end, the library
+makes use of a database of information about various specific terminal device
+models or terminal emulators. This database is often called the \Verb{terminfo}
+database. For instance, on the author's Linux system, the database is located at
+\Verb{/usr/lib/terminfo}. When a program using \Verb{libterminfo} wants to e.g.
+clear the screen, it would call a library function to get the proper escape code
+for the specific terminal device being used. The \Verb{TERM} environment
+specifies the model of the terminal device being used.
+
+Since the \Verb{tetris} program uses the \Verb{terminfo} library to handle
+escape codes, the library needed to be ported to Mimiker, which was not
+especially difficult. Below is a summary of the steps taken to port
+\Verb{libterminfo} to Mimiker:
+\begin{itemize}
+\item Import missing \Verb{libc} functionality from NetBSD (e.g. \Verb{cdb}
+  database handling functions);
+\item Modify the library's build process to use GNU \Verb{gperf} instead of
+  NetBSD's \Verb{nbperf} to generate perfect hashing functions;
+\item Add terminal descriptions for several terminal models: \Verb{xterm},
+  \Verb{xterm-256color}, \Verb{xterm-direct}, \Verb{vt100}, and \Verb{vt220};
+\item Set the \Verb{TERM} environment variable to a sensible default value (i.e.
+  \Verb{xterm}) in the shell's startup script.
+\end{itemize} 
+
+\subsection{Working around lack of \Verb{select()}/\Verb{poll()}}
+
+The biggest issue with porting \Verb{tetris} to Mimiker was how the game handles
+user input. Naturally, \Verb{tetris} is an interactive game, so whenever a
+character is typed by the user, the game reacts immediately, updating its state
+and redrawing the screen. Besides that, the piece that is falling from the top
+is periodically lowered, regardless of user input. Therefore, when reading input
+from the terminal, some sort of timeout must be used, so that the game doesn't
+block indefinitely if the user doesn't press any keys.
+
+In its original form found in NetBSD sources, the \Verb{poll()}\cite{poll}
+system call is used to wait for user input with a timeout. Unfortunately, at the
+time of writing the Mimiker kernel does not implement the \Verb{poll()} system
+call or any other system calls with similar functionality, such as
+\Verb{select()}\cite{select}. To make the game work, some workaround had to be
+put in place.
+
+Thankfully, there is a viable workaround that uses the \Verb{SIGALRM} signal and
+the \Verb{setitimer()}\cite{setitimer} function. The \Verb{setitimer()} function
+sets up a \textit{timer} for the calling process. When the timer expires, the
+process receives a \Verb{SIGALRM} signal. We can use the timer and the signal as
+a timeout mechanism.
+
+Suppose we want to read input from the terminal with a timeout of one second.
+First, we set up a handler for the \Verb{SIGALRM} signal that doesn't do
+anything. Next, we set a timer to expire one second in the future using the
+\Verb{setitmer()} function, and call the \Verb{read()} function to read input
+from the terminal. The \Verb{read()} function will sleep awaiting input if none
+is available. However, thanks to the timer, it will sleep for at most one
+second, since after one second a \Verb{SIGALRM} signal will interrupt the sleep.
+If the sleep is interrupted by a signal, the \Verb{read()} function will return
+an error code of \Verb{EINTR}, which lets us know that the timeout has expired.
+If the \Verb{read()} function returns without an error, which means that input
+arrived before the timeout, then we disable the timer.
+
+It is worth repeating that this is a workaround, not a solution. There are some
+edge cases that can pose problems. For example, if the timer expires before
+calling \Verb{read()}, the \Verb{read()} function will not be interrupted. This
+can be remedied by making the timer periodic. 
+
+Funnily enough, this workaround (which works around missing functionality in
+Mimiker) itself required functionality that was missing, namely the
+\Verb{setitimer()} and \Verb{getitimer()} functions. The functions'
+corresponding system calls with the same names had to be implemented in the
+kernel from scratch. This required some modifications to the kernel's
+\textit{callout} facility, which is used to arrange for functions to be called
+at a specified point in time. Overall, the changes required to implement timers
+amounted to about 300 lines of code.
+
+With the missing functionality in place, the workaround worked without issues,
+and \Verb{tetris} is fully playable on the Mimiker OS.
+
 \chapter{Conclusion}
 
 \bibliography{bibliography}
-\bibliographystyle{plain}
+\bibliographystyle{myplain}
 \end{document}
