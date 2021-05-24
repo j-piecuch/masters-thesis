@@ -78,121 +78,177 @@
 
 \chapter{Introduction}
 
-XXX nie jestem jeszcze pewien jak powinno wyglądać wprowadzenie. Zabiorę się za
-nie jako ostatnie. To co jest teraz napisane prawdopodobnie wyrzucę, ale
-zostawiam do wglądu.
+Text-based interfaces are a common means of interaction with a program whenever
+using a graphical interface is impossible, impractical, or undesired. An
+interactive application with a text interface outputs characters, which are then
+displayed to the user. User input is typed on a keyboard, which is made
+available to the program in the form of characters.
 
-POMYSŁ NA WPROWADZENIE:
+In the past, hardware devices called
+\textit{terminals}\footnote{\url{https://en.wikipedia.org/wiki/Computer_terminal}}
+were used for text-based interaction with a computer system. They consisted of a
+screen and a keyboard, and were connected to the computer using a serial link.
+These days, hardware terminals have been replaced with \textit{terminal
+  emulators} --- programs which run on top of a graphical environment, and
+display the emulated terminal's screen in a graphical window.
+
+The Mimiker operating system lacks a graphical environment, which leaves a
+text-based interface as the only sensible alternative. However, the OS was
+lacking common features, which limited the usability of more advanced
+applications, such as shells. This thesis describes the implementation of two
+such features: \textit{job control} and the \textit{terminal subsystem}.
+Chapter~\ref{chap:job-control} describes in detail the implementation of job
+control, while Chapter~\ref{chap:tty} presents the terminal subsystem. We will
+now provide an introductory explanation of these features, and how applications
+make use of them.
+
+\section{Introduction to job control}
+
+To understand job control, we first need to understand the functionality of a
+shell. In essence, a shell is a program used to run other programs. The user
+types a command, which is then interpreted by the shell and run. Most shells can
+perform complex commands, which involve e.g. redirecting the output of one
+program to be the input to another program, or running several programs in
+parallel. As an example, let's break down the following command:
+\begin{quote}
+\Verb{cat /etc/passwd | grep user & echo hello}
+\end{quote}
+The command runs three programs: \Verb{cat}, \Verb{grep} and \Verb{echo}, each
+with a single argument, respectively: \Verb{/etc/passwd}, \Verb{user} and
+\Verb{hello}. The output of \Verb{cat /etc/passwd} is fed to \Verb{grep user} as
+input thanks to the \Verb{|} (``pipe'') symbol between them.
+
+The \Verb{cat} and \Verb{grep} programs constitute a single \textit{job}. A job
+is group of programs accomplishing a single logical task. In this case, the job
+\Verb{cat /etc/passwd | grep user} finds the lines in the \Verb{/etc/passwd}
+file containing the string \Verb{user}. The \Verb{echo hello} program is
+launched as a job containing a single program --- itself. We will discuss the
+meaning of the \Verb{&} symbol shortly. 
+
+Job control refers to the ability of the user and the shell to monitor and
+control running jobs. We will now discuss the most important use cases for job
+control which have been made possible on Mimiker thanks to the implementation of
+missing functionality by the author.
+
+\subsubsection*{Foreground and background jobs}
+
+The \Verb{&} symbol separating the two jobs in the example command makes the
+first job run in the \textit{background}, and the second one in the
+\textit{foreground}. Only one job can be in the foreground at any time.
+Background jobs are restricted from writing output and reading input from the
+terminal. While the foreground job is running, the shell cannot accept new
+commands from the user, as it is waiting for the foreground job to complete.
+
+\subsubsection*{Stopping and resuming jobs}
+
+The foreground job may be stopped by the user by pressing a special key on the
+keyboard. When a job is stopped, all processes constituting it prevented from
+running. A background job can be put in the foreground using the \Verb{fg}
+shell command, which will also resume the target job if it was stopped.
+
+\subsubsection*{Notification of job status changes}
+
+The shell is constantly monitoring the status of its jobs. When a job terminates
+or stops, the shell is notified and it relays that information to the user.
+Also, if the foreground job becomes stopped, the shell detects it and puts
+itself in the foreground, awaiting commands from the user.
+
+Jobs are purely a shell concept, but they closely map to entities within the
+kernel called \textit{process groups}. When a shell runs a new job, it puts all
+the processes in the job in the same process group, so that they can be managed
+as a single unit. The discussion in subsequent chapters does not mention jobs,
+focusing on process groups instead.
+
+\section{Introduction to terminals}
+
+In this section, we shall focus on the software abstraction of a terminal as
+specified in POSIX~\cite{terminal-spec}, not on hardware terminal devices.
+Similarly to the previous section, we list important features which have been
+implemented by the author.
+
+\subsubsection*{Input and output processing}
+
+Terminals provide a layer of processing between processes performing I/O and the
+raw hardware device. Processing occurs on both input and output characters,
+though output processing is minimal compared to input processing. Arguably the
+most important aspect of input processing is line editing: input is assembled
+into lines, which can be edited before being passed on to processes. Certain
+parts of input processing tie into job control, e.g. stopping the foreground job
+(actually the foreground \textit{process group}) in response to a special
+character being received.
+
+\subsubsection*{Pseudoterminals}
+
+A \textit{pseudoterminal} consists of a pair of devices (in the OS, not actual
+hardware devices): one appears to processes as a regular terminal device, and
+the other one is a special device which can be used by a process to
+\textit{emulate} a hardware terminal device in software. They are commonly used
+by terminal emulators.
+
+\subsubsection*{Ported libraries and programs}
+
+The author has ported several programs making use of advanced terminal features:
 \begin{itemize}
-\item Przedstawienie kontroli zadań w powłoce (motywacja).
-\item Jakie rzeczy są potrzebne żeby to wszystko działało? Sygnały, grupy
-  procesów itp.
-\item W Mimikerze to nie działało, a teraz działa, i o tym jest ta praca.
+\item \Verb{atto}, a minimal \Verb{emacs}-like text editor. It makes use of
+  random cursor movement, as well as changing the foreground colour of the terminal.
+\item \Verb{script}, a program which records the output of a terminal session to
+  a file. It uses pseudoterminals to accomplish this task.
+\item \Verb{tetris}, a popular interactive game. Like \Verb{atto}, it makes use
+  of random cursor movement and is capable of drawing the pieces in different
+  colours. Unlike \Verb{atto}, it makes use of the \Verb{terminfo} library,
+  which had to be ported as well.
 \end{itemize}
 
-\section{What is a terminal?}
+\section{Introduction to the Mimiker OS}
 
-\subsection{Early-day terminals}
+Mimiker\footnote{\url{https://mimiker.ii.uni.wroc.pl/}} is an educational
+operating system project developed at the University of Wrocław. The primary
+area of development is the kernel, while userspace programs and libraries are
+usually ported from other OSes. The kernel aims to be compliant with the POSIX
+specification, which makes porting of applications from other POSIX-compliant
+systems easier. The design of the kernel is inspired primarily by the FreeBSD
+and NetBSD kernels, with some components influenced by Linux.
 
-In the early days of computing, a computer had a single operator. Users would
-submit their programs to the operator, usually on punched cards. When the user's
-turn came, the operator would load the program into the machine, and collect the
-output of the program in the form of punched cards. The whole process usually
-took hours. If the program contained an error, the user would know about it no
-sooner than when the operator loads it into the machine. Clearly, a more
-interactive way of submitting programs for execution was needed.
+This thesis contains a lot of source code listings with Mimiker source code. At
+the time of writing, the Mimiker project provides an interactive source code
+browser at \url{https://mimiker.ii.uni.wroc.pl/source/xref/mimiker/}. The reader
+is highly encouraged to explore the source code while reading through the
+listings.
 
-Time-sharing systems were the solution to this problem. A time-sharing system
-allows users to interact with the machine using a terminal. It gives the user an
-illusion of exclusive posession of the machine's resources. In reality, the
-operating system provides a fraction of the machine's computing resources to
-each user. Multics\cite{multics} is an early example of a time-sharing operating
-system.
+\subsection{Important OS concepts}
 
-In general, a terminal device is any device that allows its user to interact
-with a computing system, such as a mainframe. It allows the user to input
-commands, data, or even whole programs, and to examine the system's output.
-A terminal could communicate with the system remotely, or be directly attached
-to it.
+It is assumed that the reader has a basic understanding of operating systems,
+obtained e.g.\ by attending a university course. The following is a
+non-exhaustive list of terms used throughout this thesis, which the reader is
+assumed to be familiar with:
+\begin{itemize}
+  \item Kernel: the portion of an OS running with special privileges.
+  \item Process: an instance of an executing program.
+  \item Thread: the basic unit of scheduling. Note: at the time of writing, the
+    Mimiker kernel does not support processes with more than one thread.
+  \item System call: the mechanism used by threads to request services from the
+    kernel.
+  \item Interrupt: the mechanism used by hardware devices to request services
+    from the kernel or to notify it of some event.
+\end{itemize}
 
-In the beginning, terminals were electromechanical teletypewriters
-(teletypes, or TTYs for short), initially used in telegraphy. A teletype
-sends data typed on the keyboard to the computer, and prints the response on a
-piece of paper.
+\subsection{Synchronization primitives in the Mimiker
+  kernel}\label{chap:locking-intro}
 
-In the 1970, video terminals came into widespread use. A video terminal displays
-output on a screen instead of printing it. Most models provide a set of special
-\textit{escape codes}: sequences of characters that, when sent to the terminal,
-cause some action, e.g. clearing the screen. One of the most common features is
-a cursor that can be controlled using escape codes. This made tasks such as
-editing text much more enjoyable. The DEC VT100 series of video terminals was
-extremely successful, and is the basis of a de facto standard for terminal
-escape codes.
+An important aspect of kernel programming is proper synchronization of accesses
+to shared data structures. In the Mimiker kernel, this goal is accomplished
+using \textit{synchronization primitives}. The source code listings found
+throughout this thesis contain frequent references to these primitives, hence it
+is useful to have a basic understanding of their usage before reading the kernel's
+code.
 
-\subsection{Terminals in a modern context}
+The primitives used in Mimiker include \textit{locks} (of which there are two
+types) and \textit{condition variables}. In this section, we first provide a
+general introduction to locks, after which their usage in the Mimiker kernel is
+explained in detail. Finally, we explain the purpose and usage of condition
+variables in the kernel.
 
-Nowadays, most people use their computer via a graphical user interface, or GUI.
-There is no dedicated device that handles interaction between the system and the
-user: input can be provided and output can be displayed by multiple devices. For
-instance, user input can be provided by a combination of a keyboard and mouse,
-and output can be displayed on a pair of monitors. Consequently, input and
-output handling in GUI programs is considerably more complex compared to
-programs written for character-based terminals. In addition, some people simply
-prefer to use a text-based, non-graphical interface due to its efficiency. For
-these reasons, it is useful to provide a means to run programs that use a
-terminal-based interface. This is accomplished using a \textit{terminal
-emulator}.
-
-A terminal emulator is a GUI program that emulates a terminal device, usually
-one that is compatible with the VT100 series of video terminals. The display of
-the emulated terminal is presented in the emulator's GUI window. The emulator
-translates the user's keystrokes into characters and feeds them as input to the
-application running inside the emulator. Output from the application is
-displayed in the GUI window in the same way it would be displayed on a real
-video terminal's screen. \Verb{xterm} is an example of a terminal emulator.
-
-Another area where terminal-based interfaces are still used is communication
-over limited bandwidth connections, such as a Universal Asynchronous
-Receiver/Transmitter (UART). Many development boards use a serial connection
-as the primary way of communication with the user.
-
-To summarize, even though 1970s-style video terminals are no longer used,
-character-based computer interfaces that are compatible with those terminals
-remain an important part, or even the basis of interaction between a user and a
-computer system.
-
-\section{What is POSIX?}
-
-POSIX~\cite{posix} is a set of standards specifying an operating system
-interface. Its primary goal is to make it easy to write portable libraries and
-applications that work across different operating systems, although they usually
-need to be compiled for each operating system separately.
-
-Among other things, it defines an Application Programming Interface (API) for
-programs written in the C programming language that allows them to interact with
-the system and use its services. Every POSIX-compliant operating system must
-provide an implementation of this API.
-
-The Mimiker operating system implements the POSIX API, but the implementation is
-far from complete. This allows us to use existing programs using the POSIX API
-like shells, command line utilities and text editors.
-
-\section{Jobs}
-
-A job consists of one or more processes. The processes are usually connected in
-a pipeline, with each one accepting input from the previous one in the chain,
-and feeding output to the next one.
-
-Jobs are purely a shell concept: they are implemented entirely in the shell,
-and the operating system has no knowledge of them. However, there is a close
-correspondence between shell jobs and process groups, which are implemented by
-the operating system. The shell puts different jobs in different process groups.
-
-\section{Introduction to the Mimiker kernel}
-TODO
-\subsection{Synchronization primitives}\label{chap:locking-intro}
-
-\subsubsection{Introduction to locking}
+\subsubsection*{Introduction to locking}
 
 With multiple threads executing concurrently and manipulating shared data,
 ensuring that the data structures are always in a consistent state becomes a
