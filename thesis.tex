@@ -374,7 +374,7 @@ intermediate state, where the structure is in the middle of being modified).
 Now that we have covered the basics of locking, let us move on to how locks are
 used in the Mimiker kernel.
 
-\subsubsection{Locking in the Mimiker kernel}
+\subsubsection*{Locking in the Mimiker kernel}
 
 Locking is the primary strategy used in the Mimiker kernel to ensure that shared
 data structures remain in a consistent state. It is common for a data type to
@@ -391,7 +391,7 @@ They seem similar on the surface, in that they are both mutually exclusive
 locks, i.e. only one thread may hold a mutex or spinlock at a time. However,
 they are used for different purposes:
 \begin{itemize}
-\item Mutexes are used to synchronize threads with other threads;
+\item Mutexes are used to synchronize threads with other threads.
 \item Spinlocks are used to synchronize threads with interrupt service routines
   (ISRs), or to synchronize ISRs with other ISRs running on different CPUs.
 \end{itemize}
@@ -515,7 +515,7 @@ functions directly, using the \Verb{WITH_MTX_LOCK()} macro, and using the
 \label{lst:lock-macros}
 \end{listing}
 
-\subsubsection{Condition variables}
+\subsubsection*{Condition variables}
 
 In the Mimiker kernel, a thread may arrive at a point where it must wait for an
 event that may happen at some time in the future. For instance, consider
@@ -623,11 +623,11 @@ concepts:
 \begin{itemize}
 \item \textit{Process groups}, which allow for grouping processes that are part
   of a single job, together with facilities to send a signal to every process in
-  a process group at once;
+  a process group at once.
 \item \textit{Sessions}, which connect all the processes that are run by a user
-  between logging in and logging out of the system;
+  between logging in and logging out of the system.
 \item \textit{Job control signals} like \Verb{SIGSTOP} and \Verb{SIGCONT},
-  which allow for stopping and continuing individual processes;
+  which allow for stopping and continuing individual processes.
 \item \textit{Background and foreground process groups}, which determine the
   processes that are allowed to receive user input and write output to the
   terminal.
@@ -870,8 +870,8 @@ to process-tree structures, such as process groups and sessions. Next, lines
 \begin{itemize}
 \item The target process must exist, be alive (i.e. executing normally or
   stopped), and it must either be a child of the calling process, or be the
-  calling process itself;
-\item The target process must not be a session leader;
+  calling process itself.
+\item The target process must not be a session leader.
 \item The target process must be in the same session as the calling process.
 \end{itemize}
 We then \ref{f5} check whether the target process group exists. If it doesn't,
@@ -940,7 +940,7 @@ act as a serializer between them. The rule is a natural fit in this particular
 situation for two reasons:
 \begin{itemize}
   \item \Verb{_pgrp_enter()} is the only place in the whole kernel where there
-    is a need to acquire multiple process group locks;
+    is a need to acquire multiple process group locks.
   \item The \Verb{all_proc_mtx} lock is already held everywhere
     \Verb{_pgrp_enter()} is called. Therefore, virtually no code changes had to
     be made in order to accomodate this rule.
@@ -1298,7 +1298,7 @@ argument, or a handler that takes two additional arguments:
 \begin{itemize}
 \item A pointer to a structure of type \Verb{siginfo_t}, which contains
   more information about the signal (e.g.\ in the case of
-  \Verb{SIGCHLD}, the PID of the child process);
+  \Verb{SIGCHLD}, the PID of the child process).
 
 \item A pointer that can be cast to a pointer to a structure of type
   \Verb{ucontext_t}, which holds the processor context of the thread
@@ -1748,8 +1748,8 @@ group related programs into jobs.
 The implementation of the terminal subsystem in the Mimiker kernel consists of
 three primary components:
 \begin{itemize}
-\item The device-independent terminal layer;
-\item The UART terminal driver;
+\item The device-independent terminal layer.
+\item The UART terminal driver.
 \item The \textit{pseudoterminal} subsystem, which includes another terminal
   driver.
 \end{itemize}
@@ -1927,7 +1927,7 @@ terminals and foreground process groups.
 Command line applications can be roughly divided into two groups, depending on
 how they consume user input:
 \begin{itemize}
-  \item{One line at a time (\textit{line-oriented});}
+  \item{One line at a time (\textit{line-oriented}).}
   \item{One character at a time (\textit{character-oriented}).}
 \end{itemize}
 
@@ -2012,7 +2012,7 @@ The \Verb{termios} structure must contain the following fields:
 \item \Verb{c_lflag}: contains flags that control various additional functions.
   Some notable flags are:
   \begin{itemize}
-  \item \Verb{ECHO}: enable character echoing. This flag is cleared e.g. when the
+  \item \Verb{ECHO}: enable character echoing. This flag is cleared e.g.\ when the
     user is typing their password.
   \item \Verb{ICANON}: enable canonical mode.
   \item \Verb{ISIG}: send signals in response to certain control characters
@@ -2106,9 +2106,9 @@ The \Verb{t_lock} mutex synchronizes access to the structure.
 \Verb{t_flags} may contain the following flags:
 \begin{itemize}
 \item \Verb{TF_WAIT_OUT_LOWAT}: a thread is waiting for space to become
-  available in the output queue;
+  available in the output queue.
 \item \Verb{TF_WAIT_DRAIN_OUT}: a thread is waiting for the output queue to
-  become empty;
+  become empty.
 \item \Verb{TF_OUT_BUSY}: a thread is currently writing to this terminal.
   This flag is used to serialize \Verb{write()} calls on the same terminal.
 \item \Verb{TF_IN_HIWAT}: the \textit{input high watermark} has been reached.
@@ -2682,7 +2682,7 @@ terminal layer.
 The driver consists of two main components:
 \begin{itemize}
 \item A \textit{worker thread} that handles data transfers between the driver
-  and the terminal layer;
+  and the terminal layer.
 \item An \textit{interrupt service routine} (ISR) that responds to hardware events
   (e.g. a new character being received).
 \end{itemize}
@@ -2729,17 +2729,17 @@ flow, labelled with numbers:
 \begin{itemize}
 \item The thread executing the \Verb{write()} system call copies the characters
   from the userspace buffer (1), processes them, and puts them in the terminal's
-  output queue (2);
+  output queue (2).
 \item The UART driver's worker thread transfers characters between the output
   queue and the UART transmit buffer (3) or writes them directly to the UART
   hardware, bypassing the transmit buffer (10). It also takes characters from
   the UART receive buffer and processes them (6). Characters echoed during input
   processing go through output processing (9) and into the output queue (2).
   After input processing, the worker thread puts the characters in the
-  terminal's input queue (7);
+  terminal's input queue (7).
 \item The UART driver's interrupt service routine writes characters from the
   UART transmit buffer to the UART hardware (4) and puts characters received
-  from the UART hardware into the receive buffer (5);
+  from the UART hardware into the receive buffer (5).
 \item The thread executing the \Verb{read()} system call copies characters from
   the terminal's input queue to the userspace buffer (8).
 \end{itemize}
@@ -2777,10 +2777,10 @@ field is used to communicate what work needs to be done. It can contain the
 following flags:
 \begin{itemize}
 \item \Verb{TTY_THREAD_TXRDY}: The worker thread should transfer characters from
-  the terminal layer's output queue to the transmit buffer;
+  the terminal layer's output queue to the transmit buffer.
 \item \Verb{TTY_THREAD_RXRDY}: The worker thread should transfer characters from
   the receive buffer to the terminal layer using the \Verb{tty_input()}
-  function;
+  function.
 \item \Verb{TTY_THREAD_OUTQ_NONEMPTY}: This flag is used as an optimization. It
   tells the ISR whether it should wake up the worker thread to fill the transmit
   buffer. If the flag is cleared, then the terminal layer's output queue is
@@ -2821,8 +2821,8 @@ the driver is handling, such as the locations of device registers.
 
 Let us now examine the primary components of the UART terminal driver:
 \begin{itemize}
-\item The driver's implementation of the \Verb{t_notify_out} operation;
-\item The worker thread's main loop;
+\item The driver's implementation of the \Verb{t_notify_out} operation.
+\item The worker thread's main loop.
 \item The hardware interrupt service routine.
 \end{itemize}
 
@@ -2949,7 +2949,7 @@ using the \Verb{uart_tty_fill_txbuf()} function.
 
 The UART driver's interrupt service routine responds to two kinds of hardware events:
 \begin{itemize}
-\item A character has been received (``RX Ready'');
+\item A character has been received (``RX Ready'').
 \item The hardware is ready to accept a new character (``TX Ready'').
 \end{itemize}
 
@@ -3266,7 +3266,7 @@ a signal, depending on the value of the handler's \Verb{SA_RESTART} flag, whose
 value is set when installing a signal handler via
 \Verb{sigaction()}\cite{sigaction}:
 \begin{itemize}
-\item If the flag is set, the interrupted system call is restarted;
+\item If the flag is set, the interrupted system call is restarted.
 \item If the flag is not set, the interrupted system call returns to userspace,
   usually with an error code of \Verb{EINTR}.
 \end{itemize}
@@ -3302,9 +3302,9 @@ continue at exactly the point it was stopped. However, there are some drawbacks
 to this approach:
 \begin{itemize}
 \item It introduces additional logic to handle sending a stop signal to a thread
-  that is sleeping interruptibly;
+  that is sleeping interruptibly.
 \item Signals are no longer always processed at the kernel-userspace boundary:
-  stop signals can also be processed when a thread is going to sleep;
+  stop signals can also be processed when a thread is going to sleep.
 \item A thread sleeping interruptibly can be indefinitely prevented from waking
   up by sending it a stop signal. This could potentially be exploited to perform
   denial of service attacks on certain components of the system. For instance, a
@@ -3330,10 +3330,10 @@ approach:
 \item Sending a stop signal to a thread that is sleeping interruptibly is done
   in the same way as sending any other signal: if the signal isn't blocked or
   ignored, the receiving thread's sleep is interrupted and the signal is handled
-  at the userspace boundary;
+  at the userspace boundary.
 \item Signals are processed in one spot: if a thread detects a pending stop
   signal when it is about to go to sleep, it won't go to sleep, and instead
-  report to the caller that a signal needs to be handled;
+  report to the caller that a signal needs to be handled.
 \item Since threads can stop only at the userspace boundary, they can't hold any
   exclusive kernel resource (such as exclusive access to a terminal) when
   stopping.
@@ -3355,7 +3355,7 @@ pending signal, it returns a special error code that specifies under what
 circumstances the system call should be restarted:
 \begin{itemize}
 \item \Verb{ERESTARTSYS}: restart the system call if and only if no signal was
-  caught or the caught signal's handler has the \Verb{SA_RESTART} flag set; 
+  caught or the caught signal's handler has the \Verb{SA_RESTART} flag set. 
 \item \Verb{ERESTARTNOHAND}: restart the system call if and only if no signal
   was caught.
 \end{itemize}
@@ -3376,7 +3376,7 @@ Linux defines two more error codes like this, but at the time of writing they
 are not needed to implement any system call in the Mimiker kernel, so they have
 not been included:
 \begin{itemize}
-\item \Verb{ERESTARTNOINTR}: always restart the system call;
+\item \Verb{ERESTARTNOINTR}: always restart the system call.
 \item \Verb{ERESTART_RESTARTBLOCK}: like \Verb{ERESTARTSYS}, except when
   restarting, the interrupted system call is replaced with
   \Verb{restart_syscall()}\cite{restart-syscall}, which adjusts time-related
@@ -3661,11 +3661,11 @@ especially difficult. Below is a summary of the steps taken to port
 \Verb{libterminfo} to Mimiker:
 \begin{itemize}
 \item Import missing \Verb{libc} functionality from NetBSD (e.g. \Verb{cdb}
-  database handling functions);
+  database handling functions).
 \item Modify the library's build process to use GNU \Verb{gperf} instead of
-  NetBSD's \Verb{nbperf} to generate perfect hashing functions;
+  NetBSD's \Verb{nbperf} to generate perfect hashing functions.
 \item Add terminal descriptions for several terminal models: \Verb{xterm},
-  \Verb{xterm-256color}, \Verb{xterm-direct}, \Verb{vt100}, and \Verb{vt220};
+  \Verb{xterm-256color}, \Verb{xterm-direct}, \Verb{vt100}, and \Verb{vt220}.
 \item Set the \Verb{TERM} environment variable to a sensible default value (i.e.
   \Verb{xterm}) in the shell's startup script.
 \end{itemize} 
