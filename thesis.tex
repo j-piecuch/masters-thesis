@@ -2,7 +2,7 @@
 \documentclass[shortabstract, manyadvisors, english, mgr]{iithesis}
 \usepackage[utf8]{inputenc}
 \usepackage{minted, fancyvrb, epigraph, xurl, pifont, graphicx, multicol,
-  threeparttable, booktabs, makecell, chngpage}
+  threeparttable, booktabs, makecell, chngpage, hyperref}
 \renewcommand\theadfont{\bfseries}
 
 \englishtitle{Implementation of the Terminal Subsystem \\ and Job Control \\
@@ -790,7 +790,7 @@ typedef struct pgrp {
   pgid_t pg_id;
 } pgrp_t;
 \end{minted}
-\caption{\Verb{include/sys/proc.h}: definition of \Verb{pgrp_t}.}
+\caption{\href{https://mimiker.ii.uni.wroc.pl/source/xref/mimiker/include/sys/proc.h?r=8a7b07bf\#62}{\Verb{include/sys/proc.h}: definition of \Verb{pgrp_t}.}}
 \label{lst:pgrp}
 \end{listing}
 
@@ -860,7 +860,7 @@ int pgrp_enter(proc_t *p, pid_t target, pgid_t pgid) {
 @\llabel{f7}@  return _pgrp_enter(targetp, pg);
 }
 \end{minted}
-\caption{\Verb{sys/kern/proc.c}: definition of \Verb{pgrp_enter()}.}
+\caption{\href{https://mimiker.ii.uni.wroc.pl/source/xref/mimiker/sys/kern/proc.c?r=119d39cb\#391}{\Verb{sys/kern/proc.c}: definition of \Verb{pgrp_enter()}.}}
 \label{lst:pgrp-enter}
 \end{listing}
 
@@ -908,7 +908,7 @@ static int _pgrp_enter(proc_t *p, pgrp_t *target) {
   return 0;
 }
 \end{minted}
-\caption{\Verb{sys/kern/proc.c}: definition of \Verb{_pgrp_enter()}.}
+\caption{\href{https://mimiker.ii.uni.wroc.pl/source/xref/mimiker/sys/kern/proc.c?r=119d39cb\#311}{\Verb{sys/kern/proc.c}: definition of \Verb{_pgrp_enter()}.}}
 \label{lst:-pgrp-enter}
 \end{listing}
 
@@ -992,7 +992,7 @@ static void pgrp_jobc_enter(proc_t *p, pgrp_t *pg) {
       child->p_pgrp->pg_jobc++;
 }
 \end{minted}
-\caption{\Verb{sys/kern/proc.c}: definition of \Verb{pgrp_jobc_enter()}.}
+\caption{\href{https://mimiker.ii.uni.wroc.pl/source/xref/mimiker/sys/kern/proc.c?r=119d39cb\#239}{\Verb{sys/kern/proc.c}: definition of \Verb{pgrp_jobc_enter()}.}}
 \label{lst:-pgrp-enter}
 \end{listing}
 
@@ -1027,7 +1027,7 @@ static void pgrp_jobc_leave(proc_t *p, pgrp_t *pg) {
       pgrp_maybe_orphan(child->p_pgrp);
 }
 \end{minted}
-\caption{\Verb{sys/kern/proc.c}: definition of \Verb{pgrp_jobc_leave()}.}
+\caption{\href{https://mimiker.ii.uni.wroc.pl/source/xref/mimiker/sys/kern/proc.c?r=119d39cb\#251}{\Verb{sys/kern/proc.c}: definition of \Verb{pgrp_jobc_leave()}.}}
 \label{lst:-pgrp-enter}
 \end{listing}
 
@@ -1053,7 +1053,7 @@ typedef struct session {
   char s_login[LOGIN_NAME_MAX];
 } session_t;
 \end{minted}
-\caption{\Verb{include/sys/proc.h}: definition of \Verb{session_t}.}
+\caption{\href{https://mimiker.ii.uni.wroc.pl/source/xref/mimiker/include/sys/proc.h?r=8a7b07bf\#42}{\Verb{include/sys/proc.h}: definition of \Verb{session_t}.}}
 \label{lst:sess}
 \end{listing}
 
@@ -1110,7 +1110,7 @@ int session_enter(proc_t *p) {
 @\llabel{i5}@  return _pgrp_enter(p, pg);
 }
 \end{minted}
-\caption{\Verb{sys/kern/proc.c}: definition of \Verb{session_enter()}.}
+\caption{\href{https://mimiker.ii.uni.wroc.pl/source/xref/mimiker/sys/kern/proc.c?r=119d39cb\#341}{\Verb{sys/kern/proc.c}: definition of \Verb{session_enter()}.}}
 \label{lst:session-enter}
 \end{listing}
 
@@ -1288,7 +1288,7 @@ typedef struct sigaction {
   int sa_flags;
 } sigaction_t;
 \end{minted}
-\caption{\Verb{include/sys/signal.h}: definition of \Verb{sigaction_t}.}
+\caption{\href{https://mimiker.ii.uni.wroc.pl/source/xref/mimiker/include/sys/signal.h?r=225c20cd\#41}{\Verb{include/sys/signal.h}: definition of \Verb{sigaction_t}.}}
 \end{listing}
 
 The \Verb{sa_handler} and \Verb{sa_sigaction} fields are
@@ -1348,7 +1348,7 @@ additional information about signals.
 
 We will now walk through the code that does the actual work of sending a signal
 to a process. Sending signals in the Mimiker kernel is accomplished using the
-\Verb{sig_kill()} function. Listing \ref{lst:sig-kill} contains slightly
+\Verb{sig_kill()} function. Listing~\ref{lst:sig-kill} contains slightly
 simplified code of the function.
 
 \begin{listing}[H]
@@ -1390,7 +1390,7 @@ void sig_kill(proc_t *p, ksiginfo_t *ksi) {
   }
 }
 \end{minted}
-\caption{\Verb{sys/kern/signal.c}: definition of \Verb{sig_kill()}.}
+\caption{\href{https://mimiker.ii.uni.wroc.pl/source/xref/mimiker/sys/kern/signal.c?r=97a49381\#351}{\Verb{sys/kern/signal.c}: definition of \Verb{sig_kill()}.}}
 \label{lst:sig-kill}
 \end{listing}
 
@@ -1462,7 +1462,7 @@ void on_user_exc_leave(mcontext_t *ctx, syscall_result_t *result) {
   }
 }
 \end{minted}
-\caption{\Verb{sys/kern/exception.c}: definition of \Verb{on_user_exc_leave()}.}
+\caption{\href{https://mimiker.ii.uni.wroc.pl/source/xref/mimiker/sys/kern/exception.c?r=4cae32de\#57}{\Verb{sys/kern/exception.c}: definition of \Verb{on_user_exc_leave()}.}}
 \label{lst:on-user-exc-leave}
 \end{listing}
 
@@ -1541,7 +1541,7 @@ int sig_check(thread_t *td, ksiginfo_t *out) {
 @\llabel{b7}@  return 0;
 }
 \end{minted}
-\caption{\Verb{sys/kern/signal.c}: definition of \Verb{sig_check()}.}
+\caption{\href{https://mimiker.ii.uni.wroc.pl/source/xref/mimiker/sys/kern/signal.c?r=97a49381\#454}{\Verb{sys/kern/signal.c}: definition of \Verb{sig_check()}.}}
 \label{lst:sig-check}
 \end{listing}
 
@@ -1617,7 +1617,7 @@ void proc_stop(signo_t sig) {
   return;
 }
 \end{minted}
-\caption{\Verb{sys/kern/proc.c}: definition of \Verb{proc_stop()}.}
+\caption{\href{https://mimiker.ii.uni.wroc.pl/source/xref/mimiker/sys/kern/proc.c?r=119d39cb\#823}{\Verb{sys/kern/proc.c}: definition of \Verb{proc_stop()}.}}
 \label{lst:proc-stop}
 \end{listing}
 
@@ -1676,7 +1676,7 @@ void proc_continue(proc_t *p) {
 @\llabel{d4}@  WITH_SPIN_LOCK (td->td_lock) { thread_continue(td); }
 }
 \end{minted}
-\caption{\Verb{sys/kern/proc.c}: definition of \Verb{proc_continue()}.}
+\caption{\href{https://mimiker.ii.uni.wroc.pl/source/xref/mimiker/sys/kern/proc.c?r=119d39cb\#854}{\Verb{sys/kern/proc.c}: definition of \Verb{proc_continue()}.}}
 \label{lst:proc-continue}
 \end{listing}
 
@@ -1704,7 +1704,7 @@ void thread_continue(thread_t *td) {
   }
 }
 \end{minted}
-\caption{\Verb{sys/kern/thread.c}: definition of \Verb{thread_continue()}.}
+\caption{\href{https://mimiker.ii.uni.wroc.pl/source/xref/mimiker/sys/kern/thread.c?r=27b8c19a\#210}{\Verb{sys/kern/thread.c}: definition of \Verb{thread_continue()}.}}
 \label{lst:thread-continue}
 \end{listing}
 
@@ -2098,7 +2098,7 @@ typedef struct tty {
   void *t_data;
 } tty_t;
 \end{minted}
-\caption{\Verb{include/sys/tty.h}: definition of \Verb{tty_t}.}
+\caption{\href{https://mimiker.ii.uni.wroc.pl/source/xref/mimiker/include/sys/tty.h?r=ac2bafa1\#62}{\Verb{include/sys/tty.h}: definition of \Verb{tty_t}.}}
 \label{lst:tty-t}
 \end{listing}
 
@@ -2172,7 +2172,7 @@ typedef struct {
   t_notify_inactive_t t_notify_inactive;
 } ttyops_t;
 \end{minted}
-\caption{\Verb{include/sys/tty.h}: definition of \Verb{ttyops_t}.}
+\caption{\href{https://mimiker.ii.uni.wroc.pl/source/xref/mimiker/include/sys/tty.h?r=ac2bafa1\#28}{\Verb{include/sys/tty.h}: definition of \Verb{ttyops_t}.}}
 \end{listing}
 The \Verb{t_notify_out} function notifies the driver that new data has appeared
 in the terminal structure's output queue (i.e. \Verb{t_outq}). The driver should
@@ -2284,7 +2284,7 @@ static int tty_do_read(file_t *f, uio_t *uio) {
   return error;
 }
 \end{minted}
-\caption{\Verb{kern/tty.c}: simplified definition of \Verb{tty_do_read()}.}
+\caption{\href{https://mimiker.ii.uni.wroc.pl/source/xref/mimiker/sys/kern/tty.c?r=7a5a999c\#595}{\Verb{kern/tty.c}: simplified definition of \Verb{tty_do_read()}.}}
 \label{lst:tty-do-read}
 \end{listing}
 
@@ -2397,7 +2397,7 @@ void tty_input(tty_t *tty, uint8_t c) {
   }
 }
 \end{minted}
-\caption{\Verb{kern/tty.c}: simplified control flow of \Verb{tty_input()}.}
+\caption{\href{https://mimiker.ii.uni.wroc.pl/source/xref/mimiker/sys/kern/tty.c?r=7a5a999c\#471}{\Verb{kern/tty.c}: simplified control flow of \Verb{tty_input()}.}}
 \end{listing}
 
 The \Verb{t_incv} condition variable is used by reading threads to wait for data
@@ -2427,7 +2427,7 @@ static int tty_wait(tty_t *tty, condvar_t *cv) {
 }
 
 \end{minted}
-\caption{\Verb{kern/tty.c}: definition of \Verb{tty_wait()}.}
+\caption{\href{https://mimiker.ii.uni.wroc.pl/source/xref/mimiker/sys/kern/tty.c?r=7a5a999c\#192}{\Verb{kern/tty.c}: definition of \Verb{tty_wait()}.}}
 \label{lst:tty-wait}
 \end{listing}
 
@@ -2487,7 +2487,7 @@ static int tty_write(file_t *f, uio_t *uio) {
   return error;
 }
 \end{minted}
-\caption{\Verb{kern/tty.c}: simplified definition of \Verb{tty_write()}.}
+\caption{\href{https://mimiker.ii.uni.wroc.pl/source/xref/mimiker/sys/kern/tty.c?r=7a5a999c\#796}{\Verb{kern/tty.c}: simplified definition of \Verb{tty_write()}.}}
 \label{lst:tty-write}
 \end{listing}
 
@@ -2517,7 +2517,7 @@ static int tty_do_write(tty_t *tty, uio_t *uio) {
   return error;
 }
 \end{minted}
-\caption{\Verb{kern/tty.c}: simplified definition of \Verb{tty_do_write()}.}
+\caption{\href{https://mimiker.ii.uni.wroc.pl/source/xref/mimiker/sys/kern/tty.c?r=7a5a999c\#775}{\Verb{kern/tty.c}: simplified definition of \Verb{tty_do_write()}.}}
 \label{lst:tty-do-write}
 \end{listing}
 
@@ -2546,7 +2546,7 @@ static int tty_output_sleep(tty_t *tty, uint8_t c) {
   return 0;
 }
 \end{minted}
-\caption{\Verb{kern/tty.c}: definition of \Verb{tty_output_sleep()}.}
+\caption{\href{https://mimiker.ii.uni.wroc.pl/source/xref/mimiker/sys/kern/tty.c?r=7a5a999c\#760}{\Verb{kern/tty.c}: definition of \Verb{tty_output_sleep()}.}}
 \label{lst:tty-output-sleep}
 \end{listing}
 
@@ -2590,7 +2590,7 @@ static bool tty_output(tty_t *tty, uint8_t c) {
   return true;
 }
 \end{minted}
-\caption{\Verb{kern/tty.c}: simplified definition of \Verb{tty_output()}.}
+\caption{\href{https://mimiker.ii.uni.wroc.pl/source/xref/mimiker/sys/kern/tty.c?r=7a5a999c\#708}{\Verb{kern/tty.c}: simplified definition of \Verb{tty_output()}.}}
 \label{lst:tty-write}
 \end{listing}
 
@@ -2766,7 +2766,7 @@ typedef struct tty_thread {
   uint8_t ttd_flags;
 } tty_thread_t;
 \end{minted}
-\caption{\Verb{include/sys/uart_tty.h}: definition of \Verb{tty_thread_t}.}
+\caption{\href{https://mimiker.ii.uni.wroc.pl/source/xref/mimiker/include/sys/uart_tty.h?r=ac2bafa1\#16}{\Verb{include/sys/uart_tty.h}: definition of \Verb{tty_thread_t}.}}
 \end{listing}
 
 The \Verb{ttd_thread} field is a pointer to the \Verb{thread_t} structure
@@ -2808,7 +2808,7 @@ typedef struct uart_state {
   void *u_state;
 } uart_state_t;
 \end{minted}
-\caption{\Verb{include/sys/uart.h}: definition of \Verb{uart_state_t}.}
+\caption{\href{https://mimiker.ii.uni.wroc.pl/source/xref/mimiker/include/dev/uart.h?r=2609772a\#44}{\Verb{include/sys/uart.h}: definition of \Verb{uart_state_t}.}}
 \end{listing}
 
 The \Verb{u_lock} spinlock protects all fields of the structure, including the
@@ -2862,7 +2862,7 @@ static void uart_tty_fill_txbuf(device_t *dev) {
 @\llabel{i7}@  tty_getc_done(tty);
 }
 \end{minted}
-\caption{\Verb{sys/kern/uart_tty.c}: definition of \Verb{uart_tty_fill_txbuf()}.}
+\caption{\href{https://mimiker.ii.uni.wroc.pl/source/xref/mimiker/sys/kern/uart_tty.c?r=2609772a\#39}{\Verb{sys/kern/uart_tty.c}: definition of \Verb{uart_tty_fill_txbuf()}.}}
 \label{lst:uart-tty-fill-txbuf}
 \end{listing}
 
@@ -2930,7 +2930,7 @@ static void uart_tty_thread(void *arg) {
   }
 }
 \end{minted}
-\caption{\Verb{sys/kern/uart_tty.c}: definition of \Verb{uart_tty_thread()}.}
+\caption{\href{https://mimiker.ii.uni.wroc.pl/source/xref/mimiker/sys/kern/uart_tty.c?r=2609772a\#75}{\Verb{sys/kern/uart_tty.c}: definition of \Verb{uart_tty_thread()}.}}
 \end{listing}
 
 The first step in the loop is to \ref{j1} wait until the ISR gives us a signal
@@ -2989,7 +2989,7 @@ intr_filter_t uart_intr(void *data) {
   }
 }
 \end{minted}
-\caption{\Verb{sys/kern/uart.c}: definition of \Verb{uart_intr()}.}
+\caption{\href{https://mimiker.ii.uni.wroc.pl/source/xref/mimiker/sys/drv/uart.c?r=2609772a\#18}{\Verb{sys/kern/uart.c}: definition of \Verb{uart_intr()}.}}
 \end{listing}
 
 If \ref{k1} a character has been received by the hardware, we \ref{k2} put it
@@ -3095,7 +3095,7 @@ typedef struct {
   condvar_t pt_outcv;
 } pty_t;
 \end{minted}
-\caption{\Verb{sys/kern/pty.c}: definition of \Verb{pty_t}.}
+\caption{\href{https://mimiker.ii.uni.wroc.pl/source/xref/mimiker/sys/kern/pty.c?r=60656d5d\#26}{\Verb{sys/kern/pty.c}: definition of \Verb{pty_t}.}}
 \end{listing}
 
 The \Verb{pt_number} field is a unique number identifying the pseudoterminal.
@@ -3140,7 +3140,7 @@ static int pty_read(file_t *f, uio_t *uio) {
   return error;
 }
 \end{minted}
-\caption{\Verb{sys/kern/pty.c}: definition of \Verb{pty_read()}.}
+\caption{\href{https://mimiker.ii.uni.wroc.pl/source/xref/mimiker/sys/kern/pty.c?r=60656d5d\#49}{\Verb{sys/kern/pty.c}: definition of \Verb{pty_read()}.}}
 \end{listing}
 
 The function first \ref{l1} loops until there is some data in the corresponding
@@ -3163,7 +3163,7 @@ static void pty_notify_out(tty_t *tty) {
   cv_broadcast(&pty->pt_incv);
 }
 \end{minted}
-\caption{\Verb{sys/kern/pty.c}: definition of \Verb{pty_notify_out()}.}
+\caption{\href{https://mimiker.ii.uni.wroc.pl/source/xref/mimiker/sys/kern/pty.c?r=60656d5d\#200}{\Verb{sys/kern/pty.c}: definition of \Verb{pty_notify_out()}.}}
 \end{listing}
 
 Once we get past the loop, we know that there is data available in the output
@@ -3202,7 +3202,7 @@ static int pty_write(file_t *f, uio_t *uio) {
   return error;
 }
 \end{minted}
-\caption{\Verb{sys/kern/pty.c}: definition of \Verb{pty_write()}.}
+\caption{\href{https://mimiker.ii.uni.wroc.pl/source/xref/mimiker/sys/kern/pty.c?r=60656d5d\#93}{\Verb{sys/kern/pty.c}: definition of \Verb{pty_write()}.}}
 \end{listing}
 
 The function \ref{m1} loops as long as there are character left to write in the
@@ -3222,7 +3222,7 @@ static void pty_notify_in(tty_t *tty) {
   cv_broadcast(&pty->pt_outcv);
 }
 \end{minted}
-\caption{\Verb{sys/kern/pty.c}: definition of \Verb{pty_notify_in()}.}
+\caption{\href{https://mimiker.ii.uni.wroc.pl/source/xref/mimiker/sys/kern/pty.c?r=60656d5d\#206}{\Verb{sys/kern/pty.c}: definition of \Verb{pty_notify_in()}.}}
 \end{listing}
 
 If the \Verb{pty_putc_sleep()} function fails, we must roll back the read of the
