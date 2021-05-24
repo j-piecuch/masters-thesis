@@ -1039,8 +1039,8 @@ looking at the session data structure, we will see how new sessions are created.
 
 \subsubsection{Data structures}
 
-The \Verb{session_t} data structure represents a single session. Listing
-\ref{lst:sess} presents its complete definition.
+The \Verb{session_t} data structure represents a single session.
+Listing~\ref{lst:sess} presents its complete definition.
 
 \begin{listing}[H]
 \begin{minted}{c}
@@ -1067,12 +1067,12 @@ set to \Verb{NULL}.
 
 The \Verb{s_count} field counts the number of process groups belonging to the
 session. Whenever a new process group joins the session, the
-\Verb{session_hold()} function increments the \Verb{s_count} field (see listing
-\ref{lst:pgrp-enter} for an example of its usage). When a process group is
-removed, the \Verb{pgrp_remove()} function, which can be seen used in listing
-\ref{lst:-pgrp-enter} decrements the session's \Verb{s_count} field. Once the
-value of the field reaches zero, the session is removed from the kernel and the
-memory occupied by the structure is reclaimed.
+\Verb{session_hold()} function increments the \Verb{s_count} field (see
+Listing~\ref{lst:pgrp-enter} for an example of its usage). When a process group
+is removed, the \Verb{pgrp_remove()} function, which can be seen used in
+Listing~\ref{lst:-pgrp-enter} decrements the session's \Verb{s_count} field.
+Once the value of the field reaches zero, the session is removed from the kernel
+and the memory occupied by the structure is reclaimed.
 
 The \Verb{s_sid} field holds the numeric ID of the session. It is equal to the
 PID of the process that created the session.
@@ -1090,8 +1090,9 @@ terminal, the value of its \Verb{s_tty} field is set to \Verb{NULL}.
 User processes can create new sessions using the \Verb{setsid()} function from
 the C library. That function directly calls the \Verb{setsid()} system call,
 which is implemented by the \Verb{sys_setsid()} function in the kernel. That
-function, in turn, calls \Verb{session_enter()} to do the work. Listing
-\ref{lst:session-enter} presents the source code of \Verb{session_enter()}.
+function, in turn, calls \Verb{session_enter()} to do the work.
+Listing~\ref{lst:session-enter} presents the source code of
+\Verb{session_enter()}.
 
 \begin{listing}[H]
 \begin{minted}{c}
@@ -1510,7 +1511,7 @@ arrange for the signal handler to be called. The modifications made by
 hence the somewhat convoluted control flow.
 
 Let us now focus on the \Verb{sig_check()} function, which checks for pending
-signals and handles job control signals. Listing \ref{lst:sig-check} contains
+signals and handles job control signals. Listing~\ref{lst:sig-check} contains
 the source code of the function.
 
 \begin{listing}[H]
@@ -1583,7 +1584,7 @@ normally, its state is \Verb{PS_NORMAL}. When a process is stopped, its state is
 unable to run until the process is continued.
 
 The \Verb{proc_stop()} function stops the current process in response to a stop
-signal. Its source code is listed in listing \ref{lst:proc-stop}.
+signal. Its source code is listed in Listing~\ref{lst:proc-stop}.
 
 \begin{listing}[H]
 \begin{minted}{c}
@@ -1658,7 +1659,8 @@ another thread to run. The stopped thread will not be selected by the scheduler
 to run until it is continued.
 
 Let us now see how stopped processes are woken up. Continuing a process is
-simpler than stopping one, as can be seen by looking at listing \ref{lst:proc-continue}. 
+simpler than stopping one, as can be seen by looking at
+Listing~\ref{lst:proc-continue}.
 
 \begin{listing}[H]
 \begin{minted}{c}
@@ -1690,8 +1692,8 @@ we \ref{d3} notify the parent of the state change. Note that, in contrast to
 This is in line with the POSIX specification.
 
 Lastly, we \ref{d4} wake up the thread of the process we are continuing. The
-\Verb{thread_continue()} function is very simple, and is presented in listing
-\ref{lst:thread-continue}.
+\Verb{thread_continue()} function is very simple, and is presented in
+Listing~\ref{lst:thread-continue}.
 
 \begin{listing}[H]
 \begin{minted}{c}
@@ -2237,7 +2239,7 @@ to the \Verb{tty_read()} function.
 The \Verb{tty_read()} function does very little besides calling
 \Verb{tty_do_read()}, which does the actual work of reading characters from the
 input queue. Its very slightly simplified source code is presented in
-listing~\ref{lst:tty-do-read}.
+Listing~\ref{lst:tty-do-read}.
 
 \begin{listing}[H]
 \begin{minted}{c}
@@ -3004,7 +3006,7 @@ buffer, but only if \ref{k7} the terminal's output queue is not empty. If the
 transmit buffer is empty, we also \ref{k9} prevent the hardware from reporting
 TX ready interrupts, as we can't do anything about them until the worker thread
 puts some data in the transmit buffer. The \Verb{uart_tty_fill_txbuf()} function
-takes care of enabling the interrupt, see listing \ref{lst:uart-tty-fill-txbuf}.
+takes care of enabling the interrupt, see Listing~\ref{lst:uart-tty-fill-txbuf}.
 
 \section{Pseudoterminals}
 
@@ -3442,7 +3444,7 @@ resource that is held by another thread in the group.
 
 The simplest example of a deadlock is when two threads each attempt to acquire
 two mutexes: \Verb{mtx_a} and \Verb{mtx_b}, with thread 1 acquiring the mutexes
-in a different order than thread 2. Listing \ref{lst:deadlock} shows example
+in a different order than thread 2. Listing~\ref{lst:deadlock} shows example
 code for the threads.
 \begin{listing}[h]
 \begin{multicols}{2}\centering
