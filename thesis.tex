@@ -417,7 +417,7 @@ Another significant difference between mutexes and spinlocks is a feature called
 the owner of a lock if a higher-priority thread is waiting for that lock. This
 solves the problem of \textit{priority inversion}. For more information about
 priority inversion, as well as the implementation of priority propagation in the
-Mimiker kernel, see \cite{julian-thesis}. Table \ref{tab:mutex-spinlock}
+Mimiker kernel, see \cite{julian-thesis}. Table~\ref{tab:mutex-spinlock}
 provides a summary of the differences between mutexes and spinlocks in the
 Mimiker kernel.
 
@@ -711,7 +711,7 @@ a different session. Independence from the shell should not be confused with
 independence from the user: the user may open a shell in another session and
 send a signal to the daemon process, e.g. \Verb{SIGKILL}.
 
-Figure \ref{fig:proc-hierarchy} illustrates a typical grouping of processes into
+Figure~\ref{fig:proc-hierarchy} illustrates a typical grouping of processes into
 process groups and sessions. Arrows indicate parent-child relationships. It can
 be seen that \Verb{sh}, \Verb{sshd} and \Verb{init} are session leaders. The
 \Verb{sshd} process is a daemon that was started by \Verb{init}. The shell
@@ -765,7 +765,7 @@ default action).
 
 Furthermore, processes in orphaned process groups cannot be stopped by
 \textit{terminal stop signals}, i.e. \Verb{SIGTSTP}, \Verb{SIGTTOU} and
-\Verb{SIGTTIN}. These signal are explained in section \ref{job-control-signals}.
+\Verb{SIGTTIN}. These signal are explained in Section~\ref{job-control-signals}.
 
 \subsection{Process groups in the Mimiker kernel}
 
@@ -821,7 +821,7 @@ group that the process is a member of.
 
 \subsubsection{Changing process groups}
 
-Listing \ref{lst:pgrp-enter} shows kernel code implementing the POSIX
+Listing~\ref{lst:pgrp-enter} shows kernel code implementing the POSIX
 \Verb{setpgid()} function. \Verb{p} is the process that is performing the system
 call, \Verb{target} is the PID of the process whose process group is to be
 changed, and \Verb{pgid} is the PGID of the process group to which the target
@@ -961,7 +961,7 @@ of the process group being entered or left. When a process leaves a process
 group, the children of the process may no longer qualify their process group for
 job control.
 
-Figure \ref{fig:orphan} illustrates a scenario in which a call to
+Figure~\ref{fig:orphan} illustrates a scenario in which a call to
 \Verb{setpgid()} causes the process group of a child of the calling process to
 become orphaned. For this reason, it is necessary to check whether the children
 still qualify their process groups for job control whenever leaving or entering
@@ -1489,8 +1489,8 @@ returning from a system call at all). Note that \Verb{on_user_exc_leave()} is
 also called when returning to userspace from an interrupt, in which case
 \Verb{result} is set \Verb{NULL} to indicate that we're not returning from a
 system call. The \Verb{set_syscall_retval()} function also restarts the system
-call if needed. More details about system call restarting are given in section
-\ref{chap:sleep-stop}.
+call if needed. More details about system call restarting are given in
+Section~\ref{chap:sleep-stop}.
 
 The last step is to post all pending signals. We \ref{q3} loop as long as there
 is a signal that needs posting. Inside the loop, the currently selected signal
@@ -1834,7 +1834,7 @@ terminal's output queue: if the \Verb{ECHO} terminal flag is set, characters
 arriving from the hardware device are automatically copied (i.e. ``echoed'') to
 the output queue. This is very useful, e.g. in the case of a shell, where the
 user should see the command they are typing. The high-level flow of data between
-processes and terminal devices is shown in figure \ref{fig:term-hilevel}.
+processes and terminal devices is shown in Figure~\ref{fig:term-hilevel}.
 
 \begin{figure}[h]
   \centering
@@ -1909,7 +1909,7 @@ the process group of the target job, continues the target job if it was stopped,
 and waits for the new foreground job's termination.
 
 Figure~\ref{fig:proc-hierarchy-tty} presents the process hierarchy from
-figure~\ref{fig:proc-hierarchy}, but now it includes the concepts of controlling
+Figure~\ref{fig:proc-hierarchy}, but now it includes the concepts of controlling
 terminals and foreground process groups.
 
 \begin{figure}[h]
@@ -2627,11 +2627,11 @@ characters to the output queue.
 After the characters have been written to the output queue and the terminal
 driver has been notified, it is up to the driver to consume characters from the
 queue and transmit them to the hardware device. We will examine how this is done
-in the case of the UART driver in section \ref{chap:tty-uart}. 
+in the case of the UART driver in Section~\ref{chap:tty-uart}. 
 
 \subsubsection{Controlling terminals}
 
-As seen in section \ref{chap:sessions}, the controlling terminal for a
+As seen in Section~\ref{chap:sessions}, the controlling terminal for a
 session is stored in the \Verb{s_tty} field of \Verb{session_t}. When a
 new session is created, its \Verb{s_tty} field is set to \Verb{NULL}.
 
@@ -2725,7 +2725,7 @@ performed output synchronously, we would still need a worker thread to do the
 input processing.
 
 The flow of data between the terminal layer's queues, the UART driver's buffers
-and the UART device is shown in figure \ref{fig:term-hilevel-uart}. In the
+and the UART device is shown in Figure~\ref{fig:term-hilevel-uart}. In the
 figure, different ``agents'' are responsible for different parts of the data
 flow, labelled with numbers:
 \begin{itemize}
@@ -3046,7 +3046,7 @@ hardware device, and is made available as input to processes reading from the
 slave device. Similarly, everything written to the slave device goes through
 output processing in the terminal layer and appears as input to processes
 reading from the master device. The flow of data between master and slave
-devices is shown in figure \ref{fig:term-hilevel-pty}.
+devices is shown in Figure~\ref{fig:term-hilevel-pty}.
 
 \begin{figure}[h]
   \centering
@@ -3435,7 +3435,7 @@ turned out not to be a big problem.
 
 \section{Refinement of locking rules}\label{chap:locking-rules}
 
-As explained in section \ref{chap:locking-intro}, locking primitives such as
+As explained in Section~\ref{chap:locking-intro}, locking primitives such as
 mutexes are used to synchronize concurrent accesses to members of data
 structures that are shared between threads. When using these locking primitives,
 care must be taken to prevent \textit{deadlocks}. A deadlock occurs when a group
