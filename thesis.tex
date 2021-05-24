@@ -3751,7 +3751,16 @@ to be installed on the reader's system.
   subdirectory of the current working directory:\\
   \Verb{git clone --depth 1 https://github.com/cahirwpz/mimiker}
 \item Download the development environment.\\
-  \Verb{docker pull jpiecuch96/mimiker-dev}
+  Most Mimiker developers use the Mimiker
+  server\footnote{\Verb{mimiker.ii.uni.wroc.pl}} to compile and run their code.
+  However, access to the server requires an account, which the reader is assumed
+  to not have. While the project provides
+  instructions\footnote{\url{https://github.com/cahirwpz/mimiker/blob/master/README.md}}
+  on how to install the software required to compile Mimiker, the procedure is
+  quite cumbersome. For this reason, the author has prepared a Docker container
+  with all the software needed to compile and run Mimiker on an emulated
+  machine. The following command downloads the container:
+  \Verb{docker pull jpiecuch96/mimiker-dev}\\
 \item Run a shell inside the development environment.\vspace{0.5em}\\
 \begin{BVerbatim}
 docker run --rm -it -u 1000 -v $PWD/mimiker:/mimiker -w /mimiker \
