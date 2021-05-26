@@ -1,6 +1,7 @@
 \RequirePackage{xcolor}
 \documentclass[shortabstract, manyadvisors, english, mgr]{iithesis}
 \usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
 \usepackage{minted, fancyvrb, epigraph, xurl, pifont, graphicx, multicol,
   threeparttable, booktabs, makecell, chngpage, hyperref}
 \renewcommand\theadfont{\bfseries}
@@ -378,7 +379,7 @@ used in the Mimiker kernel.
 
 Locking is the primary strategy used in the Mimiker kernel to ensure that shared
 data structures remain in a consistent state. It is common for a data type to
-include a lock which is protects access to at least some of its members. For
+include a lock which protects access to at least some of its members. For
 instance, the \Verb{tty_t} structure (see Listing~\ref{lst:tty-t}) includes a
 member \Verb{t_lock} of type \Verb{mtx_t}, which is the type of mutexes in
 Mimiker. Holding a terminal structure's \Verb{t_lock} is required to access any
@@ -674,7 +675,7 @@ The concept of a session is fairly intuitive.
 A new session starts when a user logs into the system. Initially, the user's
 shell is the only process in the session. All jobs (and therefore process
 groups) created by the shell belong to the same session. Every process group
-must belong to exactly one session. Session are collections of process groups,
+must belong to exactly one session. Sessions are collections of process groups,
 much in the same way as process groups are collections of processes. A notable
 difference is that a process group cannot change its session during its
 lifetime, while a process can change its process group. Like processes and
@@ -757,11 +758,10 @@ groups of the jobs are orphaned.
 
 To solve the problem of jobs being stopped forever, when a process group becomes
 orphaned, if the process group contains at least one stopped process, then every
-process in the group is sent a \Verb{SIGHUP} signal followed by a \Verb{SIGCONT}
-signal followed by \Verb{SIGHUP}. The \Verb{SIGCONT} signal will resume stopped
-processes, and the \Verb{SIGHUP} signal notifies the processes that they are now
-orphaned (it will also most likely kill the processes, as that is the signal's
-default action).
+process in the group is sent a \Verb{SIGHUP} signal followed by a
+\Verb{SIGCONT}. The \Verb{SIGCONT} signal will resume stopped processes, and the
+\Verb{SIGHUP} signal notifies the processes that they are now orphaned (it will
+also most likely kill the processes, as that is the signal's default action).
 
 Furthermore, processes in orphaned process groups cannot be stopped by
 \textit{terminal stop signals}, i.e. \Verb{SIGTSTP}, \Verb{SIGTTOU} and
