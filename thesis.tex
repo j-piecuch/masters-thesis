@@ -392,12 +392,90 @@ member \Verb{t_lock} of type \Verb{mtx_t}, which is the type of mutexes in
 Mimiker. Holding a terminal structure's \Verb{t_lock} is required to access any
 of its other fields.
 
+In the case of data structures used across many subsystems, such as processes
+(\Verb{proc_t}), different fields may require different locks to be held before
+accessing them. For this reason, it is very important to document these
+requirements in the source code. Here is an abridged definition of the
+\Verb{proc_t} structure:
+\begin{listing}[H]
+\begin{minted}{c}
+/*! \brief Process structure
+ *
+ * Field markings and the corresponding locks:
+ *  (a) all_proc_mtx
+ *  (@) proc_t::p_lock
+ *  (g) p_pgrp->pg_lock
+ *  (!) read-only access, do not modify!
+ *  ($) use only from the same process/thread
+ *  (*) safe to dereference from owner process
+ *  When two locks are specified (see p_pgrp), either one suffices
+ *  for reading, but both must be held for writing.
+ *  NOTE: You can acquire the parent's p_lock while holding the child's p_lock,
+ *        but not the other way around!
+ */
+typedef struct proc {
+  mtx_t p_lock;               /* Process lock */
+  TAILQ_ENTRY(proc) p_all;    /* (a) link on all processes list */
+  /* ... */
+  thread_t *p_thread;         /* (@) the only thread running in this process */
+  pid_t p_pid;                /* (!) Process ID */
+  cred_t p_cred;              /* (@, *) Process credentials */
+  /* ... */
+  TAILQ_ENTRY(proc) p_pglist; /* (g + a) link on pg_members list */
+  pgrp_t *p_pgrp;             /* (@ + a) process group */
+  /* ... */
+  fdtab_t *p_fdtable;         /* ($) file descriptors table */
+  /* ... */
+} proc_t;
+\end{minted}
+\caption{\href{https://mimiker.ii.uni.wroc.pl/source/xref/mimiker/include/sys/proc.h?r=8a7b07bf\#94}{\Verb{sys/include/proc.h}:
+abridged definition of \Verb{proc_t}.}}
+\end{listing}
+According to the locking rules for \Verb{proc_t} listed above, in order to
+modify a process's \Verb{p_pgrp} field, one must hold both the process's
+\Verb{p_lock} and the global \Verb{all_proc_mtx} lock. For reading the field,
+holding just one of these locks will suffice.
+ 
+As a consequence of data structure fields having locking requirements, many
+functions in the kernel also have locking requirements, since they often access
+shared data.A function's locking requirements specify which locks must be held
+by the caller when calling the function. In Mimiker source code, locking
+requirements are usually given in a comment above the function's declaration.
+For instance, here is an excerpt from \Verb{sys/include/tty.h}:
+
+\begin{listing}[H]
+\begin{minted}{c}
+/*
+ * Put a single character into the tty's input queue, provided it's not full.
+ * Must be called with tty->t_lock held.
+ * Returns false if there's no space in the tty's input queue, true on success.
+ */
+bool tty_input(tty_t *tty, uint8_t c);
+\end{minted}
+\caption{\href{https://mimiker.ii.uni.wroc.pl/source/xref/mimiker/include/sys/tty.h?r=ac2bafa1\#144}{\Verb{sys/include/tty.h}: declaration of \Verb{tty_input()}.}}
+\end{listing}
+Locking requirements may also be verified at runtime using assertions at the
+beginning of a function. Not every function does this, but it quickly catches
+violations of the requirements. 
+
+While it is important to understand the principles of locking in Mimiker, they
+are not the focus of this thesis. Therefore, subsequent listings do not contain
+comments with locking requirements. The interested reader may of course read the
+original source code, which contains these annotations (in most cases). Listings
+containing the source code of functions still contain locking operations and
+assertions, but we won't go into detail as to \textit{why} they are there in the
+first place. With that in mind, let us go into the two types of locks used in
+the Mimiker kernel.
+
+\subsubsection*{Mutexes and spinlocks}
+
 There are currently two types of locks used in the Mimiker kernel:
 \textit{mutexes} and \textit{spinlocks}. Their behaviour is heavily inspired by
 the design of corresponding locks in the FreeBSD kernel \cite{freebsd-locking}.
 They seem similar on the surface, in that they are both mutually exclusive
 locks, i.e. only one thread may hold a mutex or spinlock at a time. However,
-they are used for different purposes:
+they are conventionally used for different purposes, both in Mimiker and in the
+FreeBSD kernel:
 \begin{itemize}
 \item Mutexes are used to synchronize threads with other threads.
 \item Spinlocks are used to synchronize threads with interrupt service routines
