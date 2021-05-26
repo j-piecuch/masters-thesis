@@ -210,6 +210,13 @@ specification, which makes porting of applications from other POSIX-compliant
 systems easier. The design of the kernel is inspired primarily by the FreeBSD
 and NetBSD kernels, with some components influenced by Linux.
 
+At the time of writing, the OS supports two platforms: the MIPS Malta
+development board, and the Raspberry Pi 3. An important thing to note is that
+the OS is tested only in an emulated environment using QEMU, not on real
+hardware. Additionally, while the CPU on the Raspberry Pi 3 has multiple cores,
+the Mimiker kernel currently does not support multiprocessor architectures,
+and therefore uses only one core on the Pi.
+
 This thesis contains a lot of source code listings with Mimiker source code. At
 the time of writing, the Mimiker project provides an interactive source code
 browser at \url{https://mimiker.ii.uni.wroc.pl/source/xref/mimiker/}. The reader
