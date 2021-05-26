@@ -809,6 +809,12 @@ All processes that are members of the process group are on the \Verb{pg_members}
 list. The list allows easy access, e.g. when a signal needs to be sent to all
 members of the group.
 
+The \Verb{TAILQ_ENTRY} and \Verb{TAILQ_HEAD} macros are part of Mimiker's
+infrastructure for creating and manipulating linked list-like structures, a
+\textit{tail queue} (which is what \Verb{TAILQ} stands for) being one example.
+The infrastructure has been imported from FreeBSD, so the FreeBSD manual
+page~\cite{tailq-man} provides a good overview of its usage.
+
 \Verb{pg_session} is a pointer to the \Verb{session_t} structure representing
 the session that this process group is a part of. Every process group is a part
 of some session.
@@ -955,7 +961,8 @@ situation for two reasons:
 
 At \ref{g4}, we are finally ready to make the switch. We remove the process from
 the old group's list of members, add it to the target group's list, and change
-the \Verb{p_pgrp} pointer.
+the \Verb{p_pgrp} pointer. For more details about the \Verb{TAILQ_*} macros,
+see~\cite{tailq-man}.
 
 At the end, we \ref{g5} check whether the process was the last remaining process
 in the old group. If so, the process group is removed.
