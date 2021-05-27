@@ -1297,17 +1297,18 @@ operating systems:
 \begin{itemize}
 \item \Verb{SIGINT}
 
-  Sent by the operating system in response to the special
-  character \Verb{VINTR} being received on the terminal. Its purpose is to
-  signal interruption by the user. A process that receives this signal is
-  usually expected to terminate shortly. The default action associated with this
-  signal is to terminate the receiving process.
+  Sent by the operating system in response to the special character \Verb{VINTR}
+  (which commonly corresponds to \Verb{^C}, i.e. Control-C) being received on
+  the terminal. Its purpose is to signal interruption by the user. A process
+  that receives this signal is usually expected to terminate shortly. The
+  default action associated with this signal is to terminate the receiving
+  process.
 
 \item \Verb{SIGQUIT}
 
-  Similar to \Verb{SIGINT}, except it is sent in response to the
-  \Verb{VQUIT} character, and the default action additionally generates a core
-  dump of the receiving process.
+  Similar to \Verb{SIGINT}, except it is sent in response to the \Verb{VQUIT}
+  character (usually~\Verb{^\}), and the default action additionally generates
+  a core dump of the receiving process.
 
 \item \Verb{SIGTTOU}
 
@@ -1325,8 +1326,8 @@ operating systems:
 
 \item \Verb{SIGTSTP}
 
-  Sent by the operating system in response to the special character
-  \Verb{VSUSP} being received on the terminal. Its purpose is to stop the
+  Sent by the operating system in response to the special character \Verb{VSUSP}
+  (usually~\Verb{^Z}) being received on the terminal. Its purpose is to stop the
   foreground job. Well-behaving processes should not ignore this signal. Many
   programs need to do some cleanup before stopping: in that case, they register
   a handler that does the necessary cleanup, after which it performs
