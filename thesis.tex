@@ -1313,9 +1313,9 @@ operating systems:
 \item \Verb{SIGTTOU}
 
   Sent by the operating system whenever a background job attempts to write to
-  the terminal, provided the \Verb{TOSTOP} terminal flag is set (more on
-  terminal flags later). The default action associated with this signal is to
-  stop the receiving process.
+  the terminal, provided the \Verb{TOSTOP} terminal flag is set (we will say
+  more about terminal flags later). The default action associated with this
+  signal is to stop the receiving process.
   
 \item \Verb{SIGTTIN}
 
@@ -3762,7 +3762,9 @@ especially difficult. Below is a summary of the steps taken to port
 \item Add terminal descriptions for several terminal models: \Verb{xterm},
   \Verb{xterm-256color}, \Verb{xterm-direct}, \Verb{vt100}, and \Verb{vt220}.
 \item Set the \Verb{TERM} environment variable to a sensible default value (i.e.
-  \Verb{xterm}) in the shell's startup script.
+  \Verb{xterm}) in the shell's startup script. \Verb{xterm} is a good default
+  choice, since it is an old terminal emulator, and most modern emulators are
+  compatible with it.
 \end{itemize} 
 
 \subsection{Working around lack of \Verb{select()}/\Verb{poll()}}
