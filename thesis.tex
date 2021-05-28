@@ -1540,10 +1540,12 @@ Section~\ref{chap:locking-rules} goes into more detail about lock ordering.
 \subsubsection{Signal delivery}
 
 After a signal is sent, it remains in the pending set, waiting to be delivered.
-Signals are delivered to a process whenever control transfers from the kernel
-to that process, i.e. on transitions from the kernel to userspace. Every time
-before returning to userspace, the \Verb{on_user_exc_leave()} function is
-called. This function handles signal delivery and system call restarting.
+Signals are delivered to a process whenever control is transferred from the
+kernel to that process, i.e. on transitions from the kernel to userspace. Every
+time before returning to userspace, either from executing a system call, or
+handling an interrupt or exception that occurred while the CPU was executing
+userspace code, the \Verb{on_user_exc_leave()} function is called. This function
+handles signal delivery and system call restarting.
 
 \begin{listing}[H]
 \begin{minted}{c}
