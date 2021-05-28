@@ -2249,7 +2249,8 @@ typedef struct {
 The \Verb{t_notify_out} function notifies the driver that new data has appeared
 in the terminal structure's output queue (i.e. \Verb{t_outq}). The driver should
 ensure that data from the queue is written out to the terminal device as soon as
-possible. It is the only required function.
+possible. It is the only function implemented by both terminal drivers, i.e. the
+UART and pseudoterminal drivers.
 
 The \Verb{t_notify_in} function notifies the driver that space has become
 available in the input queue (i.e. \Verb{t_inq}).
