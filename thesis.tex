@@ -1508,10 +1508,11 @@ shared (i.e. many threads of execution can access them), so access to them must
 be synchronized using locks.
 
 We then \ref{a2} quickly filter out ignored signals, with an exception for
-signals that can continue stopped processes, as some processing needs to be done
-even if they are ignored. Furthermore, terminal stop signals (\Verb{SIGTSTP},
-\Verb{SIGTTOU} and \Verb{SIGTTIN}) cannot stop a process which is in an orphaned
-process group: this case is detected by the \Verb{sig_ignore_ttystop()} function.
+signals that can resume stopped processes, as these signals have an effect on
+the target process (i.e. continue it) even if they are ignored. Furthermore,
+terminal stop signals (\Verb{SIGTSTP}, \Verb{SIGTTOU} and \Verb{SIGTTIN}) cannot
+stop a process which is in an orphaned process group: this case is detected by
+the \Verb{sig_ignore_ttystop()} function.
 
 In \ref{a3}, we check whether the signal being sent is a stop or continue
 signal. If it is, we remove all signals that are already pending which have the
