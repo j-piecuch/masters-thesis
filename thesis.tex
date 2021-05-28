@@ -240,6 +240,15 @@ assumed to be familiar with:
     from the kernel or to notify it of some event.
 \end{itemize}
 
+The implementation of certain aspects of job control, e.g. stopping processes,
+has been made significantly easier due to Mimiker's lack of support for
+multithreaded processes. If multithreading is ever introduced to Mimiker in the
+future, it will require significant changes to the internal way in which
+processes are stopped. On the contrary, the implementation of the terminal
+subsystem is quite independent of whether processes are multithreaded or not.
+Therefore, that part of the code base will not require many adjustments, if any
+at all.
+
 \subsection{Synchronization primitives in the Mimiker
   kernel}\label{chap:locking-intro}
 
