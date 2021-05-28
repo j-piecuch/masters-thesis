@@ -1747,13 +1747,14 @@ fairly simple, due to the fact that all processes in the Mimiker kernel are
 single-threaded. Still, it is not as simple as one might like, due to some
 technicalities around locking.
 
-Specifically, we are not allowed to hold the thread's spinlock
-(\Verb{td->td_lock}) while releasing a mutex. Furthermore, we must release the
-process's lock before stopping the thread in \Verb{sched_switch()}, and the
-thread's spinlock must be held when calling \Verb{sched_switch()}. These
-constraints require us to briefly hold no locks at all. During this window of
-time, another process might continue the process we are trying to stop, in which
-case we should not stop the thread.
+Specifically, we are not allowed to hold the current thread's spinlock (in this
+case, \Verb{td->td_lock}) while releasing a mutex. This restriction does not
+apply to any other spinlocks, which can be held while releasing a mutex.
+Furthermore, we must release the process's lock before stopping the thread in
+\Verb{sched_switch()}, and the thread's spinlock must be held when calling
+\Verb{sched_switch()}. These constraints require us to briefly hold no locks at
+all. During this window of time, another process might continue the process we
+are trying to stop, in which case we should not stop the thread.
 
 The solution is to add the \Verb{TDF_STOPPING} thread flag, which signals that
 the thread is about to stop, but hasn't stopped yet. It is set \ref{c5} while
