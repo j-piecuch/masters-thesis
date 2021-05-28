@@ -1463,7 +1463,7 @@ void sig_kill(proc_t *p, ksiginfo_t *ksi) {
   thread_t *td = p->p_thread;
   bool ignored = sig_ignored(p->p_sigactions, sig);
 
-@\llabel{a2}@ if ((ignored && !sigprop_cont(sig)) || sig_ignore_ttystop(p, sig))
+@\llabel{a2}@  if ((ignored && !sigprop_cont(sig)) || sig_ignore_ttystop(p, sig))
     return;
 
   /* If sending a stop or continue signal,
@@ -1487,7 +1487,7 @@ void sig_kill(proc_t *p, ksiginfo_t *ksi) {
 @\llabel{a7}@    td->td_flags |= TDF_NEEDSIGCHK;
     if (td_is_interruptible(td)) {
       spin_unlock(td->td_lock);
-      sleepq_abort(td); /* Locks & unlocks td_lock */
+@\llabel{a8}@      sleepq_abort(td); /* Locks & unlocks td_lock */
       spin_lock(td->td_lock);
     }
   }
@@ -1526,11 +1526,14 @@ process's thread.
 
 The final step is notifying the thread that it needs to process its pending
 signals. This step is skipped if \ref{a6} the signal is blocked from being
-delivered. The \Verb{TDF_NEEDSIGCHK} flag lets the thread know that it should
-check for pending signals at the nearest opportunity. If the thread is
+delivered. The \ref{a7} \Verb{TDF_NEEDSIGCHK} flag lets the thread know that it
+should check for pending signals at the nearest opportunity. If the thread is
 \textit{sleeping interruptibly} (e.g. blocked inside a \Verb{read()} call on a
-terminal device, awaiting user input), it is awakened so that it can receive the
-signal.
+terminal device, awaiting user input), it is \ref{a8} awakened so that it can
+receive the signal. The need to release \Verb{td_lock} before calling
+\Verb{sleepq_abort()} is an unfortunate consequence of \textit{lock ordering},
+as the function acquires another spinlock before acquiring \Verb{td_lock}.
+Section~\ref{chap:locking-rules} goes into more detail about lock ordering.
 
 
 \subsubsection{Signal delivery}
