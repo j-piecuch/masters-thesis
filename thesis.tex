@@ -2161,7 +2161,8 @@ space becomes available in the input queue.
 \subsubsection*{\Verb{tty_t}}
 
 The \Verb{tty_t} structure encapsulates the hardware-independent state
-associated with a single terminal.
+associated with a single terminal. Among other things, it contains the
+\Verb{termios} structure, which houses the terminal's settings.
 
 \begin{listing}[H]
 \begin{minted}{c}
