@@ -1815,29 +1815,6 @@ If the flag is not set, then we know that the thread is stopped, hence the
 assertion at \ref{e2}. We then \ref{e3} call \Verb{sched_wakeup()} to make the
 thread runnable again.
 
-The primary way of controlling a computer over a terminal connection
- is using a
-\textit{shell}. A shell is a program that executes commands typed by the user.
-The purpose of most commands is to run a specified program with a given set of
-arguments. For example, the command \Verb{ls -l} instructs the shell to find a
-program named \Verb{ls} and run it with a single argument \Verb{-l}.
-The executed program will then run to completion. It may accept further input
-from the user and write output. The shell waits for the program to finish, after
-which it is ready to accept more commands from the user.
-
-This example presented a very simple use case.
-The user may want to execute \textit{jobs} that consist of a pipeline of
-programs, with programs in the middle of the pipeline accepting input from the
-previous one and feeding output to the next one. Such jobs may run for a long
-time, so the user should be able to run any job in the background, without
-making the shell wait for it to finish.
-
-\textit{Job control} is a general feature of the system that allows the user to
-control running jobs. A job may be suspended and resumed, terminated, a
-background job may be brought into the foreground and vice versa. Job control
-usually requires support from the operating system, and it's up to the shell to
-group related programs into jobs.
-
 \chapter{The Terminal Subsystem}
 
 The implementation of the terminal subsystem in the Mimiker kernel consists of
