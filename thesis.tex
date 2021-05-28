@@ -1852,7 +1852,8 @@ This chapter uses concepts such as \textit{terminals}, \textit{terminal
 \item A \textit{terminal} does \textbf{not} refer to a hardware device like a
   teletype. Instead, it is an abstract representation of such a device in the
   kernel, not tied to a specific hardware model. In fact, it may not even be
-  ``backed'' by any actual hardware device, thanks to pseudoterminals.
+  ``backed'' by any actual hardware device, thanks to pseudoterminals. The
+  terminal layer implements the device-independent functions of a terminal.
 \item A \textit{terminal device} is the hardware device that can be represented
   by an abstract terminal. A UART is an example of a terminal device.
 \item A \textit{terminal driver} acts as the ``glue'' between the terminal layer
