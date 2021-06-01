@@ -255,11 +255,10 @@ at all.
   kernel}\label{chap:locking-intro}
 
 An important aspect of kernel programming is proper synchronization of accesses
-to shared data structures. In the Mimiker kernel, this goal is accomplished
-using \textit{synchronization primitives}. The source code listings found
-throughout this thesis contain frequent references to these primitives, hence it
-is useful to have a basic understanding of their usage before reading the kernel's
-code.
+to shared data structures. In the Mimiker kernel, this is accomplished using
+\textit{synchronization primitives}. The source code listings found throughout
+this thesis contain frequent references to these primitives, hence it is useful
+to have a basic understanding of their usage before reading the kernel's code.
 
 The primitives used in Mimiker include \textit{locks} (of which there are two
 types) and \textit{condition variables}. In this section, we first provide a
@@ -313,23 +312,33 @@ Notice that thread 1 appears to preserve the structure's invariant: if the
 invariant is true prior to its execution, then it will be true after thread 1
 executes. Looking at thread 2, its assertion should always pass thanks to the
 invariant associated with the structure. However, issues start to appear as soon
-as thread 1 is run concurrently with thread 2. Consider the following series of
-events:
+as thread 1 is run concurrently with thread 2. Consider the following sequence
+of events:
 \begin{listing}[H]
 \begin{minted}{c}
+/* Initial state: shared_foo.x = 0, shared_foo.y = 0 */
+
 /* Thread 2: */
-int x = shared_foo.x; /* value read = 0 */
+int x = shared_foo.x; /* Value read = 0 */
+
 /* Thread 1: */
-shared_foo.x++;
-shared_foo.y++;
+shared_foo.x++;       /* New value of shared_foo.x = 1 */
+shared_foo.y++;       /* New value of shared_foo.y = 1 */
+
 /* Thread 2: */
-int y = shared_foo.y; /* value read = 1 */
+int y = shared_foo.y; /* Value read = 1 */
 assert(x == y);       /* Boom! */
 \end{minted}
+\caption{Sequence of events that leads to thread 2 observing a violation of the invariant.}
 \end{listing}
-As we can see, thread 1 observed a state of the \Verb{shared_foo} structure
-which violates the invariant, because it was modified by thread 2 in the middle
-of thread 1 reading it. Clearly, something must be done to prevent this.
+As we can see, thread 2 observed a state of the \Verb{shared_foo} structure
+which violates the invariant, because it was modified by thread 1 in the middle
+of thread 2 reading it. A violation of an invariant in a critical piece of
+software, such as a kernel, usually leads to a crash, or worse, silent
+corruption which could lead to loss of data. The absolute worst-case scenario is
+a malicious actor deliberately violating an invariant as part of an exploit
+chain, leading to the attacker gaining control of the system. Clearly, something
+must be done to ensure that the invariant is always preserved.
 
 A common solution to this problem is to \textit{synchronize} the threads to
 ensure that when a thread is modifying the structure, no other threads are
@@ -345,7 +354,7 @@ time a thread acquires and releases a mutex, it is said to \textit{hold} or
 \textbf{at most one thread may hold that mutex at any given time} --- this is
 what mutual exclusion is all about. If a thread attempts to acquire a mutex that
 is already held by another thread, it will \textit{block} (i.e. stop executing)
-waiting for the holder of the mutex to release it.
+waiting for the owner of the mutex to release it.
 
 Let's try to solve our problem with concurrent accesses to \Verb{struct foo}
 using a mutex. Let's call it \Verb{foo_mtx}. The function used to
@@ -387,8 +396,11 @@ thread 2 can't access the structure while thread 1 is in the middle of modifying
 it. The mutex ensures that all accesses to the structure are
 \textit{serialized}, i.e. they happen one after another, never concurrently. As
 long as all accesses to the structure are made while holding \Verb{foo_mtx}, all
-readers are guaranteed to see a consistent state (i.e. they won't see an
+readers are guaranteed to see a consistent state (i.e.\ they won't see an
 intermediate state, where the structure is in the middle of being modified).
+Therefore, assuming all modifications to the structure preserve its invariant
+and happen while holding \Verb{foo_mtx}, there is no way for a reader to observe
+a state violating the invariant.
 
 Now that we have covered the basics of locking, let us move on to how locks are
 used in the Mimiker kernel.
@@ -427,14 +439,11 @@ requirements in the source code. Here is an abridged definition of the
 typedef struct proc {
   mtx_t p_lock;               /* Process lock */
   TAILQ_ENTRY(proc) p_all;    /* (a) link on all processes list */
-  /* ... */
   thread_t *p_thread;         /* (@) the only thread running in this process */
   pid_t p_pid;                /* (!) Process ID */
   cred_t p_cred;              /* (@, *) Process credentials */
-  /* ... */
   TAILQ_ENTRY(proc) p_pglist; /* (g + a) link on pg_members list */
   pgrp_t *p_pgrp;             /* (@ + a) process group */
-  /* ... */
   fdtab_t *p_fdtable;         /* ($) file descriptors table */
   /* ... */
 } proc_t;
@@ -565,7 +574,7 @@ commonly used to acquire a mutex for the entire duration of a function. The
 for spinlocks. Listing~\ref{lst:lock-macros} shows example usage of these
 macros. Each code sample in the listing is equivalent with respect to locking.
 
-\begin{listing}[H]
+\begin{listing}[h]
 \begin{adjustwidth}{-1.5cm}{-1.5cm}\centering
 \begin{multicols}{3}
 \begin{minted}[frame=single]{c}
@@ -619,7 +628,8 @@ event that may happen at some time in the future. For instance, consider
 multiple producer and consumer threads sharing a buffer. The producer puts data
 into the buffer, while consumers take data from the buffer and do something with
 it. Since the buffer is a data structure shared by multiple threads, it must be
-protected by a lock. A mutex is a good choice, since no ISRs are involved.
+protected by a lock. A mutex is a good choice, since the buffer isn't shared
+with any ISRs.
 
 Now, consider what happens when a consumer tries to take some data from the
 buffer, but finds out that the buffer is empty. It must somehow wait for a
@@ -632,15 +642,15 @@ Clearly, a more efficient alternative is needed.
 
 \textit{Condition variables} are a very useful synchronization primitive that
 can be used in our example. Generally speaking, they are used whenever a thread
-must wait for some condition to become true, hence the name. A typical condition
-variable provides three operations: \textit{wait}, \textit{signal}, and
-\textit{broadcast}. The wait operation accepts a condition variable and a lock,
-and it atomically releases the lock and suspends execution of the thread
-invoking the operation. Thanks to its atomicity, when another thread
-subsequently acquires the same lock, the waiting thread is guaranteed to be
-suspended. This prevents events known as \textit{lost wakeups} from occurring.
-The signal operation is used to wake up at most one thread waiting on a
-condition variable, while the broadcast operation wakes up all threads waiting
+must wait for some condition to become true, hence the name. A typical
+implementation of condition variables provides three operations: \textit{wait},
+\textit{signal}, and \textit{broadcast}. The wait operation accepts a condition
+variable and a lock, and it atomically releases the lock and suspends execution
+of the thread invoking the operation. Thanks to its atomicity, when another
+thread subsequently acquires the same lock, the waiting thread is guaranteed to
+be suspended. This prevents events known as \textit{lost wakeups} from
+occurring. The signal operation is used to wake up at most one thread waiting on
+a condition variable, while the broadcast operation wakes up all threads waiting
 on a condition variable. When a waiting thread is woken up, it automatically
 acquires the lock passed to the \Verb{cv_wait()} function.
 
@@ -1026,12 +1036,12 @@ process lock of the target process. We acquire the necessary locks at \ref{g3}.
 \Verb{_pgrp_enter()}.
 
 When acquiring two locks of the same type (in this case process group locks),
-one has to be very careful not to cause a deadlock. The usual way to ensure
-safety from deadlocks is to establish an ordering on the locks, and whenever
-multiple locks need to be acquired, make sure all required locks are acquired
-according to that ordering. However, in this case deadlock can be avoided
-without specifying an order on process group locks, by enforcing the following
-rule:
+one has to be very careful not to cause a \textit{deadlock} (see
+Section~\ref{chap:locking-rules}). The usual way to ensure safety from deadlocks
+is to establish an ordering on the locks, and whenever multiple locks need to be
+acquired, make sure all required locks are acquired according to that ordering.
+However, in this case deadlock can be avoided without specifying an order on
+process group locks, by enforcing the following rule:
 \begin{quote}
   In order to acquire multiple process group locks, a thread must already hold
   the \Verb{all_proc_mtx} lock.
@@ -3943,7 +3953,7 @@ All the bugs have been fixed, with the last fix being committed to the
 \section{Future work}
 
 In this section, we provide several possible directions for future work in the
-are of job control and the terminal subsystem in the Mimiker OS. The first two
+area of job control and the terminal subsystem in the Mimiker OS. The first two
 suggestions stem from unimplemented POSIX features. The third one concerns a
 behaviour in Mimiker that differs significantly from other, more popular
 UNIX-like operating systems. The last suggestion is a general improvement that
