@@ -713,7 +713,7 @@ This section provided an introduction to synchronization primitives found in
 source code listings throughout this thesis. It will hopefully make the reader
 less confused when reading through code making use of them.
 
-\chapter{Job Control}
+\chapter{Job Control}\label{chap:job-control}
 
 Support for job control on POSIX-compliant systems is realised by several
 concepts:
@@ -1833,7 +1833,7 @@ If the flag is not set, then we know that the thread is stopped, hence the
 assertion at \ref{e2}. We then \ref{e3} call \Verb{sched_wakeup()} to make the
 thread runnable again.
 
-\chapter{The Terminal Subsystem}
+\chapter{The Terminal Subsystem}\label{chap:tty}
 
 The implementation of the terminal subsystem in the Mimiker kernel consists of
 three primary components:
@@ -4122,7 +4122,7 @@ play back the session exactly as it was recorded.
 
 \subsubsection*{Playing \Verb{tetris}}
 
-To play \Verb{tetris}, type the \Verb{tetris} command in the shell. Have fun!
+To play \Verb{tetris}, type the \Verb{tetris} command in the shell.
 
 \bibliography{bibliography}
 \bibliographystyle{myplain}
