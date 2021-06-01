@@ -1893,7 +1893,7 @@ UNIX-like operating systems, which goes well beyond POSIX, is presented in
 \cite[Chapter~18]{apue}. For a Linux-specific discussion, see
 \cite[Chapter~62]{tlpi}.
 
-\subsection{POSIX terminals}
+\subsection{POSIX terminals}\label{chap:posix-terminals}
 
 On the surface, a terminal is no different than a standard character device. To
 interact with it, a process can open the corresponding device file using
@@ -3836,119 +3836,15 @@ board.
   \caption{Screenshot of \Verb{tetris} running under Mimiker.}
   \label{fig:tetris}
 \end{figure}
-\chapter{Conclusion}
+\chapter{Conclusion, future work, and usage instructions}
 
-This chapter lays out instructions on how to compile and run the Mimiker OS, as
-well as test some use cases enabled by proper support for job control and the
-terminal subsystem. Finally, the author's contributions to Mimiker and other
-projects are summarized.
-
-\section{Compilation and usage instructions}
-This section presents step-by-step instructions on how to compile and run
-Mimiker, as well as some shell commands that showcase the functionality
-implemented by the author. The \Verb{git} and \Verb{docker} programs are assumed
-to be installed on the reader's system.
-
-\subsection*{Compiling Mimiker}
-
-\begin{enumerate}
-\item Get the source code.\\
-  The following command will download the Mimiker sources into the \Verb{mimiker}
-  subdirectory of the current working directory:\\
-  \Verb{git clone --depth 1 https://github.com/cahirwpz/mimiker}
-\item Download the development environment.\\
-  Most Mimiker developers use the Mimiker
-  server\footnote{\Verb{mimiker.ii.uni.wroc.pl}} to compile and run their code.
-  However, access to the server requires an account, which the reader is assumed
-  to not have. While the project provides
-  instructions\footnote{\url{https://github.com/cahirwpz/mimiker/blob/master/README.md}}
-  on how to install the software required to compile Mimiker, the procedure is
-  quite cumbersome. For this reason, the author has prepared a Docker container
-  with all the software needed to compile and run Mimiker on an emulated
-  machine. The following command downloads the container:
-  \Verb{docker pull jpiecuch96/mimiker-dev}\\
-\item Run a shell inside the development environment.\vspace{0.5em}\\
-\begin{BVerbatim}
-docker run --rm -it -u 1000 -v $PWD/mimiker:/mimiker -w /mimiker \
-  jpiecuch96/mimiker-dev bash
-\end{BVerbatim}
-  \\
-  Note: this command should be run in the directory containing the
-  \Verb{mimiker} subdirectory. Also, the reader's user ID is assumed to be 1000
-  (which is the case on most systems).\\
-\item Compile Mimiker.\\
-  Run the following command in the shell inside the development
-    environment:\\
-  \Verb{make -j$(nproc)}\\
-  If the command fails for whatever reason, try running it again without the
-  \Verb{-j} option.
-\end{enumerate}
-
-\subsection*{Running Mimiker}
-
-To run a shell inside Mimiker, run the following command in the shell
-inside the development environment:\\
-\Verb{./launch init=/bin/ksh}\\
-This should open a \Verb{tmux} session with the \Verb{ksh} shell running in the
-active window. We can now run various commands inside Mimiker.
-
-\subsection*{Terminal commands}
-
-This section presents some terminal commands that make use of Mimiker's job
-control capabilities or the terminal subsystem.
-
-\subsubsection*{Terminal access control based on background process groups}
-
-\begin{enumerate}
-\item List current terminal settings:\\
-  \Verb{stty -a}\\
-  The output contains \Verb{-tostop}, which indicates that the \Verb{TOSTOP}
-  flag is not set. This means that a process in a background process group
-  should be able to write to the terminal.
-\item Check that both background and foreground processes can write to the
-  terminal:\\
-  \Verb{echo background & echo foreground}\\
-  Both \Verb{background} and \Verb{foreground} will be output.
-\item Check that background processes are not allowed to read from the terminal:\\
-  \Verb{cat &}\\
-  The \Verb{cat} program tries to read from the terminal, but since it is in a
-  background process group, the attempt results in it being stopped by a
-  \Verb{SIGTTIN} signal. This can be verified by running the \Verb{jobs}
-  command, which will show the stopped process. It can be brought into the
-  foreground using the \Verb{fg} command, after which it can be terminated by
-  typing \Verb{^C} (Control-C).
-\item Set the \Verb{TOSTOP} terminal flag:\\
-  \Verb{stty tostop}
-\item Check that background processes are not allowed to write to the terminal:
-  \Verb{echo background & echo foreground}\\
-  This time, only \Verb{foreground} will be output. Running the \Verb{jobs}
-  command will reveal that the background process was stopped upon trying to
-  write to the terminal. If we bring it into the foreground using \Verb{fg}, 
-  \Verb{background} will be output.
-\end{enumerate}
-
-\subsubsection*{Recording a terminal session with \Verb{script}}
-
-The \Verb{script} program uses pseudoterminals to record the output of all
-programs in a terminal session. It can record the output to a plaintext file,
-or it can also record the timestamp of each output event, making it possible to
-play back the session exactly as it was recorded.
-
-\begin{enumerate}
-\item Change into the \Verb{/tmp} directory:\\
-  \Verb{cd /tmp}
-\item To record into a plaintext file, just use the command:\\
-  \Verb{script}
-\item Now type some commands, for instance:\\
-  \Verb{echo one && echo two}
-\item Type \Verb{^D} (Control-D) to end the recorded terminal session.
-\item The plaintext file with the recording is at \Verb{/tmp/typescript}:\\
-  \Verb{cat typescript}
-\item To record a session with timestamps, use the command:\\
-  \Verb{script -r}\\
-  To play it back, use:\\
-  \Verb{script -pq typescript}
-\end{enumerate}
+In this chapter, the author's contributions to the Mimiker OS and elsewhere are
+first summarized. After that, we lay out notable differences between the POSIX
+specification and the implementation described in this thesis. The differences
+are usually due to unimplemented features, which provides suggestions for future
+work. Finally, we provide instructions on how to compile and run the Mimiker OS,
+as well as test some use cases enabled by proper support for job control and the
+terminal subsystem.
 
 \section{Summary of contributions}
 \subsection*{Mimiker source code}
@@ -4043,6 +3939,190 @@ FreeBSD kernel:
 \end{itemize}
 All the bugs have been fixed, with the last fix being committed to the
 \Verb{main} branch on the 18th of May, 2021.
+
+\section{Future work}
+
+In this section, we provide several possible directions for future work in the
+are of job control and the terminal subsystem in the Mimiker OS. The first two
+suggestions stem from unimplemented POSIX features. The third one concerns a
+behaviour in Mimiker that differs significantly from other, more popular
+UNIX-like operating systems. The last suggestion is a general improvement that
+would help greatly in porting advanced applications with a text-based user
+interface.
+
+\subsubsection*{Unimplemented terminal settings}
+
+The description of the \Verb{termios} structure found in
+Section~\ref{chap:posix-terminals} omits many flags which are part of the
+specification, but are not used by most terminal-based applications. Many of
+them control various properties of the hardware terminal or handling of
+transmission errors. Implementing these may be necessary in order to handle real
+UART hardware, as opposed to emulated UARTs. Additionally, changing the
+\textit{baud rate} (i.e. transmission speed) using \Verb{cfsetispeed()} and
+\Verb{cfsetispeed()} functions is not implemented. Below is a summary of
+unimplemented terminal settings. The complete specification of terminal settings
+can be found in \cite{terminal-spec}.
+
+\begin{itemize}
+  \item Parity error handling: \Verb{IGNPAR}, \Verb{INPCK}, \Verb{PARMRK},
+    \Verb{PARENB}, \Verb{PARODD}.
+  \item Break condition handling: \Verb{BRKINT}, \Verb{IGNBRK}.
+  \item Flow control: \Verb{IXANY}, \Verb{IXOFF}, \Verb{IXON}.
+  \item Hardware parameters: \Verb{CREAD}, \Verb{CSIZE}, \Verb{CSTOPB}.
+\end{itemize}
+
+\subsubsection*{Non-canonical mode \Verb{read()} semantics}
+
+The current implementation of \Verb{tty_do_read()} (see
+Listing~\ref{lst:tty-do-read}) unconditionally reads a single character at a
+time in non-canonical mode, which does not conform to the specification found in
+\cite[Section~11.1.7]{terminal-spec}. In POSIX, the semantics of reading from a
+terminal in non-canonical mode can be controlled using the \Verb{MIN} and
+\Verb{TIME} parameters, whose values are stored at indices \Verb{VMIN} and
+\Verb{VTIME} in the \Verb{c_cc} array found in the \Verb{termios} structure.
+Simplifying a bit, the \Verb{TIME} parameter specifies the maximum time the
+\Verb{read()} function should wait for a character, and \Verb{MIN} specifies the
+minimum number of characters that should be read. For the precise semantics, we
+refer the reader to the specification.
+
+\subsubsection*{Revocation of access to controlling terminal after termination
+  of session leader}
+
+As explained in Section~\ref{chap:posix-terminals}, when the leader of a session
+terminates, the remaining processes in the session may, but do not need to, have
+their access to the controlling terminal revoked. The Mimiker kernel currently
+does not revoke access to the controlling terminal, as doing it well would
+require adding a general file access revocation mechanism, which is fairly
+difficult. Adding such a mechanism to the kernel would help bring Mimiker's
+behaviour in this area more in line with other modern UNIX-like OSes.
+
+\subsubsection*{Porting the \Verb{curses} library}
+
+In order to port \Verb{tetris} to the Mimiker OS, the \Verb{terminfo} library,
+which abstracts the different capabilities and escape codes used by different
+terminals, had to be ported as well. This was an important step towards enabling
+support for all terminal-based applications, but there is still one crucial
+component missing.
+
+Many advanced applications and games with a text-based interface make use of the
+\Verb{curses} library. It builds upon the \Verb{terminfo} library to provide
+GUI-like building blocks, such as windows or scrollable lists. The \Verb{curses}
+library found in NetBSD is considerably larger than \Verb{terminfo} in terms of
+lines of code, making it more challenging to port to Mimiker. Having a working
+\Verb{curses} library in Mimiker would be a big step towards supporting
+applications and games with impressive text-based interfaces.
+
+\section{Compilation and usage instructions}
+This section presents step-by-step instructions on how to compile and run
+Mimiker, as well as some shell commands that showcase the functionality
+implemented by the author. The \Verb{git} and \Verb{docker} programs are assumed
+to be installed on the reader's system.
+
+\subsection*{Compiling Mimiker}
+
+\begin{enumerate}
+\item Get the source code.\\
+  The following command will download the Mimiker sources into the \Verb{mimiker}
+  subdirectory of the current working directory:\\
+  \Verb{git clone --depth 1 https://github.com/cahirwpz/mimiker}
+\item Download the development environment.\\
+  Most Mimiker developers use the Mimiker
+  server\footnote{\Verb{mimiker.ii.uni.wroc.pl}} to compile and run their code.
+  However, access to the server requires an account, which the reader is assumed
+  to not have. While the project provides
+  instructions\footnote{\url{https://github.com/cahirwpz/mimiker/blob/master/README.md}}
+  on how to install the software required to compile Mimiker, the procedure is
+  quite cumbersome. For this reason, the author has prepared a Docker container
+  with all the software needed to compile and run Mimiker on an emulated
+  machine. The following command downloads the container:
+  \Verb{docker pull jpiecuch96/mimiker-dev}\\
+\item Run a shell inside the development environment.\vspace{0.5em}\\
+\begin{BVerbatim}
+docker run --rm -it -u 1000 -v $PWD/mimiker:/mimiker -w /mimiker \
+  jpiecuch96/mimiker-dev bash
+\end{BVerbatim}
+  \\
+  Note: this command should be run in the directory containing the
+  \Verb{mimiker} subdirectory. Also, the reader's user ID is assumed to be 1000
+  (which is the case on most systems).\\
+\item Compile Mimiker.\\
+  Run the following command in the shell inside the development
+    environment:\\
+  \Verb{make -j$(nproc)}\\
+  If the command fails for whatever reason, try running it again without the
+  \Verb{-j} option.
+\end{enumerate}
+
+\subsection*{Running Mimiker}
+
+To run a shell inside Mimiker, run the following command in the shell
+inside the development environment:\\
+\Verb{./launch init=/bin/ksh}\\
+This should open a \Verb{tmux} session with the \Verb{ksh} shell running in the
+active window. We can now run various commands inside Mimiker.
+
+\subsection*{Terminal commands}
+
+This section presents some shell commands that make use of Mimiker's job
+control capabilities or the terminal subsystem. Naturally, all commands listed
+in this section should be run in a shell inside Mimiker.
+
+\subsubsection*{Terminal access control based on background process groups}
+
+\begin{enumerate}
+\item List current terminal settings:\\
+  \Verb{stty -a}\\
+  The output contains \Verb{-tostop}, which indicates that the \Verb{TOSTOP}
+  flag is not set. This means that a process in a background process group
+  should be able to write to the terminal.
+\item Check that both background and foreground processes can write to the
+  terminal:\\
+  \Verb{echo background & echo foreground}\\
+  Both \Verb{background} and \Verb{foreground} will be output.
+\item Check that background processes are not allowed to read from the terminal:\\
+  \Verb{cat &}\\
+  The \Verb{cat} program tries to read from the terminal, but since it is in a
+  background process group, the attempt results in it being stopped by a
+  \Verb{SIGTTIN} signal. This can be verified by running the \Verb{jobs}
+  command, which will show the stopped process. It can be brought into the
+  foreground using the \Verb{fg} command, after which it can be terminated by
+  typing \Verb{^C} (Control-C).
+\item Set the \Verb{TOSTOP} terminal flag:\\
+  \Verb{stty tostop}
+\item Check that background processes are not allowed to write to the terminal:
+  \Verb{echo background & echo foreground}\\
+  This time, only \Verb{foreground} will be output. Running the \Verb{jobs}
+  command will reveal that the background process was stopped upon trying to
+  write to the terminal. If we bring it into the foreground using \Verb{fg}, 
+  \Verb{background} will be output.
+\end{enumerate}
+
+\subsubsection*{Recording a terminal session with \Verb{script}}
+
+The \Verb{script} program uses pseudoterminals to record the output of all
+programs in a terminal session. It can record the output to a plaintext file,
+or it can also record the timestamp of each output event, making it possible to
+play back the session exactly as it was recorded.
+
+\begin{enumerate}
+\item Change into the \Verb{/tmp} directory:\\
+  \Verb{cd /tmp}
+\item To record into a plaintext file, just use the command:\\
+  \Verb{script}
+\item Now type some commands, for instance:\\
+  \Verb{echo one && echo two}
+\item Type \Verb{^D} (Control-D) to end the recorded terminal session.
+\item The plaintext file with the recording is at \Verb{/tmp/typescript}:\\
+  \Verb{cat typescript}
+\item To record a session with timestamps, use the command:\\
+  \Verb{script -r}\\
+  To play it back, use:\\
+  \Verb{script -pq typescript}
+\end{enumerate}
+
+\subsubsection*{Playing \Verb{tetris}}
+
+To play \Verb{tetris}, type the \Verb{tetris} command in the shell. Have fun!
 
 \bibliography{bibliography}
 \bibliographystyle{myplain}
