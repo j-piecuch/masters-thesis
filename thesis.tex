@@ -2297,9 +2297,13 @@ terminal.
 used to implement the \Verb{/dev/tty} device file, which refers to different
 terminals for processes in different sessions. The \Verb{t_opencount} field
 keeps track of the number of open file descriptors for the terminal.
-
 \Verb{t_data} is an opaque pointer for the underlying terminal driver to store
 its private data.
+
+In addition to the above fields, there are macros convenience macros
+\Verb{t_lflag}, \Verb{t_cflag}, \Verb{t_iflag}, \Verb{t_oflag}, and \Verb{t_cc}.
+These expand to the corresponding members of the \Verb{t_termios} field. For
+instance, \Verb{t_lflag} expands to \Verb{t_termios.c_lflag}.
 
 \subsubsection{Lifecycle of a terminal}
 
