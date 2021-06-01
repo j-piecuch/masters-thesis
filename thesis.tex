@@ -491,7 +491,8 @@ the Mimiker kernel.
 
 There are currently two types of locks used in the Mimiker kernel:
 \textit{mutexes} and \textit{spinlocks}. Their behaviour is heavily inspired by
-the design of corresponding locks in the FreeBSD kernel \cite{freebsd-locking}.
+the design of corresponding locks in the FreeBSD kernel \cite{freebsd-locking}
+\cite[Section~4.3, Subsection ``Mutex Synchronization'']{freebsd-book}.
 They seem similar on the surface, in that they are both mutually exclusive
 locks, i.e. only one thread may hold a mutex or spinlock at a time. However,
 they are conventionally used for different purposes, both in Mimiker and in the
@@ -3597,14 +3598,15 @@ Consider the following sequence of events:
 Clearly, neither thread can proceed, since each thread is waiting for a lock
 that is held by the other thread. Hence, we have a deadlock.
 
-One of the most common ways to prevent such deadlocks is to impose an
-\textit{ordering} on the locks and require that locks are always acquired
-according to that ordering. For instance, if we imposed an ordering that placed
-\Verb{mtx_a} before \Verb{mtx_b}, it would be illegal to acquire \Verb{mtx_a}
-while holding \Verb{mtx_b}. If a thread wanted to acquire both mutexes, it would
-need to acquire \Verb{mtx_a} first and then \Verb{mtx_b}. Thus, the two threads
-from the example would acquire the two mutexes in the same ordering, preventing
-a deadlock from happening.
+One of the most common ways to prevent such deadlocks, employed e.g.\ by FreeBSD
+\cite[Section~4.3, Subsection ``Deadlock Prevention'']{freebsd-book} is to
+impose an \textit{ordering} on the locks and require that locks are always
+acquired according to that ordering. For instance, if we imposed an ordering
+that placed \Verb{mtx_a} before \Verb{mtx_b}, it would be illegal to acquire
+\Verb{mtx_a} while holding \Verb{mtx_b}. If a thread wanted to acquire both
+mutexes, it would need to acquire \Verb{mtx_a} first and then \Verb{mtx_b}.
+Thus, the two threads from the example would acquire the two mutexes in the same
+ordering, preventing a deadlock from happening.
 
 The Mimiker kernel tries to avoid deadlocks using this method. Whenever multiple
 locks are acquired, they are acquired according to an informally defined
