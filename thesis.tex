@@ -1689,7 +1689,7 @@ caller via the \Verb{out} output parameter. The signal is then passed to
 
 If no signal needs to be posted, the function \ref{b6} clears the thread's
 \Verb{TDF_NEEDSIGCHK} flag, since there is no need to check for pending signals
-anymore. A return value of 0 \ref{b7} indicates to the caller that no signal
+anymore. A return value of zero \ref{b7} indicates to the caller that no signal
 needs to be posted.
 
 \subsubsection{Stopping and continuing processes}
@@ -1713,7 +1713,7 @@ void proc_stop(signo_t sig) {
   thread_t *td = thread_self();
   proc_t *p = td->td_proc;
 
-@\llabel{c1}@ assert(mtx_owned(&p->p_lock));
+@\llabel{c1}@  assert(mtx_owned(&p->p_lock));
   assert(p->p_state == PS_NORMAL);
 
 @\llabel{c2}@  p->p_state = PS_STOPPED;
@@ -2176,8 +2176,9 @@ space becomes available in the input queue.
 The \Verb{tty_t} structure encapsulates the hardware-independent state
 associated with a single terminal. Among other things, it contains the
 \Verb{termios} structure, which houses the terminal's settings.
+Listing~\ref{lst:tty-t} contains the structure's definition,
 
-\begin{listing}[H]
+\begin{listing}[h]
 \begin{minted}{c}
 typedef enum {
   TF_WAIT_OUT_LOWAT = 0x1,
@@ -2294,9 +2295,9 @@ The \Verb{t_notify_in} function notifies the driver that space has become
 available in the input queue (i.e. \Verb{t_inq}).
 
 The \Verb{t_notify_active} function is called when the number of open file
-descriptors for the terminal increases from 0 to 1. Predictably,
+descriptors for the terminal increases from zero to one. Predictably,
 \Verb{t_notify_inactive} is called when the number of open file descriptors
-drops from 1 to 0.
+drops from one to zero.
 
 The terminal configuration described in the previous section is stored in the
 \Verb{t_termios} field. The terminal window size is stored separately in the
@@ -2488,14 +2489,12 @@ void tty_input(tty_t *tty, uint8_t c) {
       return;
     }
   }
-
   if (ICANON flag is set) {
     /* Line editing */
     if (c is VERASE or VKILL) {
       erase the approriate characters from the line;
       return;
     }
-
     insert c into the line buffer;
     
     if (c is a line terminator) {
@@ -2506,7 +2505,6 @@ void tty_input(tty_t *tty, uint8_t c) {
     insert c into the input queue;
     notify threads waiting on t_incv;
   }
-
   if (ECHO flag is set) {
     echo c;
   }
@@ -2557,14 +2555,14 @@ the terminal, in which case we must disallow any further I/O. Therefore,
 immediately after waking up we \ref{p2} check whether the driver has detached
 and return an error code if it has.
 
-Instead of being woken up by another thread signalling the condition variable, it
-is also possible that we were woken up by receiving a signal that needs
+Instead of being woken up by another thread signalling the condition variable,
+it is also possible that we were woken up by receiving a signal that needs
 handling. In other words, our sleep was \textit{interrupted} (that's what the
-\Verb{intr} in \Verb{cv_wait_intr() stands for} --- \textit{interruptible}). At
+\Verb{intr} in \Verb{cv_wait_intr()} stands for --- \textit{interruptible}). At
 \ref{p3} we check whether our sleep was interrupted by a signal. If it was, we
 return \Verb{ERESTARTSYS}, which is a special return value that will cause the
-system call to be restarted if it turns out that no signal has been caught.
-This special return value is explained in more detail in
+system call to be restarted if it turns out that no signal has been caught. This
+special return value is explained in more detail in
 Section~\ref{chap:sleep-stop}.
 
 \subsubsection{Terminal output}
@@ -3226,21 +3224,13 @@ queue.
 
 \subsubsection{Master-side input}
 
-Processes read from the master device of a pseudoterminal using the
-\Verb{read()} system call, which inside the kernel uses the \Verb{fo_read}
-function pointer to call the appropriate implementation. In the case of master
-device files, that function pointer points to \Verb{pty_read()}. Let us examine
-how it operates.
-
 \begin{listing}[H]
 \begin{minted}{c}
 static int pty_read(file_t *f, uio_t *uio) {
   tty_t *tty = f->f_data;
   pty_t *pty = tty->t_data;
-  int error;
 
   SCOPED_MTX_LOCK(&tty->t_lock);
-
   /* Wait until there is at least one byte of data. */
 @\llabel{l1}@  while (ringbuf_empty(&tty->t_outq)) {
 @\llabel{l2}@    if (!tty_opened(tty))
@@ -3249,14 +3239,20 @@ static int pty_read(file_t *f, uio_t *uio) {
       return ERESTARTSYS;
   }
 
-@\llabel{l4}@  error = ringbuf_read(&tty->t_outq, uio);
+@\llabel{l4}@  int error = ringbuf_read(&tty->t_outq, uio);
 @\llabel{l5}@  tty_getc_done(tty);
-
   return error;
 }
 \end{minted}
 \caption{\href{https://mimiker.ii.uni.wroc.pl/source/xref/mimiker/sys/kern/pty.c?r=60656d5d\#49}{\Verb{sys/kern/pty.c}: definition of \Verb{pty_read()}.}}
+\label{lst:pty-read}
 \end{listing}
+
+Processes read from the master device of a pseudoterminal using the
+\Verb{read()} system call, which inside the kernel uses the \Verb{fo_read}
+function pointer to call the appropriate implementation. In the case of master
+device files, that function pointer points to \Verb{pty_read()}. Let us examine
+how it operates. Listing~\ref{lst:pty-read} presents the function's source code.
 
 The function first \ref{l1} loops until there is some data in the corresponding
 slave terminal's output queue. If \ref{l2} the slave terminal isn't opened by
@@ -3937,7 +3933,7 @@ as part of the overall implementation effort described in this thesis:
 \end{itemize}
 
 \subsection*{Other contributions}
-When reading FreeBSD source code, the author found and reported 3 bugs in the
+When reading FreeBSD source code, the author found and reported three bugs in the
 FreeBSD kernel:
 \begin{itemize}
 \item Bug 250701 - ``Race condition between \Verb{tty_wait_background()} and
