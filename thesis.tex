@@ -3712,8 +3712,8 @@ the parent's \Verb{p_lock} \textit{while} holding its child's \Verb{p_lock}.
 This used to be forbidden by the locking rules. However, note that we can safely
 acquire the parent's mutex if we enforce the following rule:
 \begin{quote}
-  The \Verb{p_lock} of the parent of a process \Verb{p} may be acquired while
-  holding the \Verb{p_lock} of \Verb{p}, but not the other way around.
+  \textit{The \Verb{p_lock} of the parent of a process \Verb{p} may be acquired
+    while holding the \Verb{p_lock} of \Verb{p}, but not the other way around.}
 \end{quote}
 Since the process hierarchy forms a tree, there are no cycles, so it is
 impossible for a deadlock to occur. We could extend this rule to arbitrary
