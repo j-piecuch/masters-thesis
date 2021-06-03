@@ -943,43 +943,43 @@ process is to be moved.
 \begin{listing}[H]
 \begin{minted}{c}
 int pgrp_enter(proc_t *p, pid_t target, pgid_t pgid) {
-@\llabel{f1}@  SCOPED_MTX_LOCK(all_proc_mtx);
+@\llabel{x1}@  SCOPED_MTX_LOCK(all_proc_mtx);
   proc_t *targetp = proc_find_raw(target);
 
-@\llabel{f2}@  if (targetp == NULL || !proc_is_alive(targetp) ||
+@\llabel{x2}@  if (targetp == NULL || !proc_is_alive(targetp) ||
       (targetp != p && targetp->p_parent != p))
     return ESRCH;
-@\llabel{f3}@  if (targetp == targetp->p_pgrp->pg_session->s_leader)
+@\llabel{x3}@  if (targetp == targetp->p_pgrp->pg_session->s_leader)
     return EPERM;
-@\llabel{f4}@  if (targetp->p_pgrp->pg_session != p->p_pgrp->pg_session)
+@\llabel{x4}@  if (targetp->p_pgrp->pg_session != p->p_pgrp->pg_session)
     return EPERM;
 
   pgrp_t *pg = pgrp_lookup(pgid);
 
   /* Create new group if one does not exist. */
-@\llabel{f5}@  if (pg == NULL) {
+@\llabel{x5}@  if (pg == NULL) {
     /* New pgrp can only be created with PGID = PID of target process. */
     if (pgid != target)
       return EPERM;
     pg = pgrp_create(pgid);
     pg->pg_session = p->p_pgrp->pg_session;
     session_hold(pg->pg_session);
-@\llabel{f6}@  } else if (pg->pg_session != p->p_pgrp->pg_session) {
+@\llabel{x6}@  } else if (pg->pg_session != p->p_pgrp->pg_session) {
     /* Target process group must be in the same session
      * as the calling process. */
     return EPERM;
   }
 
-@\llabel{f7}@  return _pgrp_enter(targetp, pg);
+@\llabel{x7}@  return _pgrp_enter(targetp, pg);
 }
 \end{minted}
 \caption{\href{https://mimiker.ii.uni.wroc.pl/source/xref/mimiker/sys/kern/proc.c?r=119d39cb\#391}{\Verb{sys/kern/proc.c}: definition of \Verb{pgrp_enter()}.}}
 \label{lst:pgrp-enter}
 \end{listing}
 
-First, we \ref{f1} acquire the \Verb{all_proc_mtx}, which synchronizes accesses
+First, we \ref{x1} acquire the \Verb{all_proc_mtx}, which synchronizes accesses
 to process-tree structures, such as process groups and sessions. Next, lines
-\ref{f2}, \ref{f3} and \ref{f4} respectively perform the following checks:
+\ref{x2}, \ref{x3} and \ref{x4} respectively perform the following checks:
 \begin{itemize}
 \item The target process must exist, be alive (i.e. executing normally or
   stopped), and it must either be a child of the calling process, or be the
@@ -987,9 +987,9 @@ to process-tree structures, such as process groups and sessions. Next, lines
 \item The target process must not be a session leader.
 \item The target process must be in the same session as the calling process.
 \end{itemize}
-We then \ref{f5} check whether the target process group exists. If it doesn't,
+We then \ref{x5} check whether the target process group exists. If it doesn't,
 it is created, but only if the requested PGID matches the PID of the target
-process. At \ref{f6} we perform yet another permission check. Finally, we call
+process. At \ref{x6} we perform yet another permission check. Finally, we call
 \Verb{_pgrp_enter()} to perform the actual work of changing the process group of
 the target process.
 
@@ -1107,7 +1107,6 @@ static void pgrp_jobc_enter(proc_t *p, pgrp_t *pg) {
 }
 \end{minted}
 \caption{\href{https://mimiker.ii.uni.wroc.pl/source/xref/mimiker/sys/kern/proc.c?r=119d39cb\#239}{\Verb{sys/kern/proc.c}: definition of \Verb{pgrp_jobc_enter()}.}}
-\label{lst:-pgrp-enter}
 \end{listing}
 
 \Verb{p} is the process entering the process group \Verb{pg}.
@@ -1142,7 +1141,6 @@ static void pgrp_jobc_leave(proc_t *p, pgrp_t *pg) {
 }
 \end{minted}
 \caption{\href{https://mimiker.ii.uni.wroc.pl/source/xref/mimiker/sys/kern/proc.c?r=119d39cb\#251}{\Verb{sys/kern/proc.c}: definition of \Verb{pgrp_jobc_leave()}.}}
-\label{lst:-pgrp-enter}
 \end{listing}
 
 \subsection{Sessions in the Mimiker kernel}
@@ -1211,38 +1209,38 @@ Listing~\ref{lst:session-enter} presents the source code of
 \begin{listing}[H]
 \begin{minted}{c}
 int session_enter(proc_t *p) {
-@\llabel{i1}@  SCOPED_MTX_LOCK(&all_proc_mtx);
+@\llabel{z1}@  SCOPED_MTX_LOCK(&all_proc_mtx);
 
   pgid_t pgid = p->p_pid;
   pgrp_t *pg = pgrp_lookup(pgid);
 
-@\llabel{i2}@  if (pg)
+@\llabel{z2}@  if (pg)
     return EPERM;
 
-@\llabel{i3}@  pg = pgrp_create(pgid);
-@\llabel{i4}@  pg->pg_session = session_create(p);
+@\llabel{z3}@  pg = pgrp_create(pgid);
+@\llabel{z4}@  pg->pg_session = session_create(p);
 
-@\llabel{i5}@  return _pgrp_enter(p, pg);
+@\llabel{z5}@  return _pgrp_enter(p, pg);
 }
 \end{minted}
 \caption{\href{https://mimiker.ii.uni.wroc.pl/source/xref/mimiker/sys/kern/proc.c?r=119d39cb\#341}{\Verb{sys/kern/proc.c}: definition of \Verb{session_enter()}.}}
 \label{lst:session-enter}
 \end{listing}
 
-First, we \ref{i1} acquire the \Verb{all_proc_mtx} lock, which is required to perform
+First, we \ref{z1} acquire the \Verb{all_proc_mtx} lock, which is required to perform
 things such as process group lookups and creating new sessions and process
 groups.
 
-At \ref{i2}, we ensure that there doesn't already exist a process group with the
+At \ref{z2}, we ensure that there doesn't already exist a process group with the
 same PGID as the PID of the calling process. The process group that is created as
 a result of creating a new session has a PGID equal to the PID of the calling
 process, and if a group with such a PGID already exists, we can't create the
 group we need, since PGIDs must be unique.
 
-Once we have ensured that we can create the group, we do so at \ref{i3}. Then,
-we \ref{i4} create a new session with \Verb{p} as the session leader and link it
+Once we have ensured that we can create the group, we do so at \ref{z3}. Then,
+we \ref{z4} create a new session with \Verb{p} as the session leader and link it
 to the newly created group (the session created by \Verb{session_create()} has a
-\Verb{s_count} of 1, so there's no need to adjust it). Finally, we \ref{i5}
+\Verb{s_count} of 1, so there's no need to adjust it). Finally, we \ref{z5}
 change the process group of the calling process to the one we just created.
 
 \section{Job Control Signals}
@@ -2685,18 +2683,18 @@ of output character processing and putting the characters into the output queue.
 static bool tty_output(tty_t *tty, uint8_t c) {
   int oflag = tty->t_oflag;
   if (!(oflag & OPOST)) {
-@\llabel{h1}@    return tty_outq_putc(tty, c);
+@\llabel{y1}@    return tty_outq_putc(tty, c);
   }
 
   uint8_t cb[2];
   cb[0] = c;
-@\llabel{h2}@  int ccount = tty_process_out(tty, oflag, cb);
+@\llabel{y2}@  int ccount = tty_process_out(tty, oflag, cb);
   int col = tty->t_column;
 
-@\llabel{h3}@  if (!tty_outq_write(tty, cb, ccount))
+@\llabel{y3}@  if (!tty_outq_write(tty, cb, ccount))
     return false;
 
-@\llabel{h4}@  for (int i = 0; i < ccount; i++) {
+@\llabel{y4}@  for (int i = 0; i < ccount; i++) {
     adjust the col variable based on the character class of cb[i];
   }
   tty->t_column = col;
@@ -2704,11 +2702,10 @@ static bool tty_output(tty_t *tty, uint8_t c) {
 }
 \end{minted}
 \caption{\href{https://mimiker.ii.uni.wroc.pl/source/xref/mimiker/sys/kern/tty.c?r=7a5a999c\#708}{\Verb{kern/tty.c}: simplified definition of \Verb{tty_output()}.}}
-\label{lst:tty-write}
 \end{listing}
 
-If the \Verb{OPOST} flag isn't set, we skip all output processing and \ref{h1}
-write the character directly to the output queue. Otherwise, we \ref{h2} call
+If the \Verb{OPOST} flag isn't set, we skip all output processing and \ref{y1}
+write the character directly to the output queue. Otherwise, we \ref{y2} call
 \Verb{tty_process_out} to handle \Verb{OCRNL}, \Verb{ONLCR} and \Verb{ONOCR}
 terminal flags. During processing, a single character can be converted into two
 characters due to the \Verb{ONLCR} flag, which is why we use the \Verb{cb}
@@ -2718,7 +2715,7 @@ is not), then a single character could be converted into as many as eight
 characters, since if the flag is set, a tab character (\Verb{'\t'}) is converted
 into eight spaces.
 
-We then \ref{h3} attempt to write the processed characters to the output queue.
+We then \ref{y3} attempt to write the processed characters to the output queue.
 The call to \Verb{tty_outq_write()} will return \Verb{false} if there isn't
 enough space in the output queue for the characters. If that's the case, we
 return \Verb{false} to indicate failure. 
@@ -2729,7 +2726,7 @@ the column number of the terminal cursor. Each character has a \textit{class},
 which determines how it impacts the column number. For instance, the
 \Verb{BACKSPACE} class (which contains only the backspace character \Verb{'\b'})
 decreases the column number by one, unless the column number is already zero.
-We therefore \ref{h4} loop over every character we have written to the output
+We therefore \ref{y4} loop over every character we have written to the output
 queue and adjust the column number based on its class.
 
 Finally, we return \Verb{true} to indicate that we have successfully written the
