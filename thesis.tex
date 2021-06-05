@@ -2580,11 +2580,11 @@ static int tty_write(file_t *f, uio_t *uio) {
       return ENXIO;
 
     if (tty->t_lflag & TOSTOP) {
-@\llabel{g1}@      if ((error = tty_check_background(tty, SIGTTOU)))
+@\llabel{w1}@      if ((error = tty_check_background(tty, SIGTTOU)))
         return error;
     }
 
-@\llabel{g2}@    while (tty->t_flags & TF_OUT_BUSY)
+@\llabel{w2}@    while (tty->t_flags & TF_OUT_BUSY)
       if ((error = tty_wait(tty, &tty->t_serialize_cv)))
         return error;
     tty->t_flags |= TF_OUT_BUSY;
@@ -2602,9 +2602,9 @@ static int tty_write(file_t *f, uio_t *uio) {
 \label{lst:tty-write}
 \end{listing}
 
-The function's primary role is to \ref{g1} check whether we are allowed to
+The function's primary role is to \ref{w1} check whether we are allowed to
 perform the operation using \Verb{tty_check_background()} and to serialize calls
-to \Verb{tty_do_write()} by \ref{g2} waiting until the \Verb{TF_OUT_BUSY} flag
+to \Verb{tty_do_write()} by \ref{w2} waiting until the \Verb{TF_OUT_BUSY} flag
 is cleared.
 
 The \Verb{tty_do_write()} function is responsible for putting each character in
