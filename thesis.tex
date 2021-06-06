@@ -4009,17 +4009,41 @@ as part of the overall implementation effort described in this thesis:
 \end{itemize}
 
 \subsection*{Other contributions}
-When reading FreeBSD source code, the author found and reported three bugs in the
-FreeBSD kernel:
+When reading FreeBSD source code, the author found and reported three bugs in
+the FreeBSD kernel's terminal subsystem. The FreeBSD operating system is a
+widely used production-grade OS. The second bug can lead to a kernel panic (i.e.
+a system crash), while the last one allows any process with write access to a
+terminal to prevent all other processes in the system from writing to that
+terminal, regardless of their credentials.
 \begin{itemize}
 \item Bug 250701 - ``Race condition between \Verb{tty_wait_background()} and
-    \Verb{doenterpgrp()}''\\
-  \url{https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=250701}
+  \Verb{doenterpgrp()}''\\
+  \url{https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=250701}\\
+  Recall from Section~\ref{chap:posix-terminals} that when a process in a
+  background process group attempts to read or write to its controlling
+  terminal, the process group containing the offending process may be sent a
+  \Verb{SIGTTIN} or \Verb{SIGTTOU} signal. This bug could lead to the offending
+  process not being sent the signal if its process group is concurrently
+  changed.
 \item Bug 251915 - ``TOCTOU race between \Verb{tty_signal_sessleader()} and
   \Verb{killjobc()}''\\
-  \url{https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=251915}
+  \url{https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=251915}\\
+  This bug was caused by the \Verb{tty_signal_sessleader()} function not holding
+  the required lock when reading a session structure's pointer to the leader
+  process. If the value of the pointer is not \Verb{NULL}, a signal is sent to
+  the process. However, since the required lock is not held, the value of the
+  pointer can be changed to \Verb{NULL} immediately after the check, leading to
+  a null pointer dereference.
 \item Bug 255816 - ``tty: Potential DoS on terminal writes by stopping thread inside \Verb{ttydisc_write()}''\\
-  \url{https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=255816}
+  \url{https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=255816}\\
+  FreeBSD serializes \Verb{write()} calls on terminals in the same way as
+  Mimiker (see Listing~\ref{lst:tty-write}). Obviously, Mimiker copies this
+  behaviour from FreeBSD, not the other way around. However, due to the way
+  FreeBSD handles sending stop signals to threads sleeping interruptibly (see
+  Section~\ref{chap:sleep-stop}), a thread can become stopped while having
+  exclusive access to the terminal. This prevents all other threads from writing
+  to the terminal.
+  
 \end{itemize}
 All the bugs have been fixed, with the last fix being committed to the
 \Verb{main} branch on the 18th of May, 2021.
