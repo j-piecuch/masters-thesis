@@ -4230,9 +4230,45 @@ play back the session exactly as it was recorded.
   \Verb{script -pq typescript}
 \end{enumerate}
 
-\subsubsection*{Playing \Verb{tetris}}
+\subsubsection*{Stopping/resuming shell jobs and running \Verb{tetris}}
 
-To play \Verb{tetris}, type the \Verb{tetris} command in the shell.
+\begin{enumerate}
+\item List current terminal settings:\\
+  \Verb{stty -a}\\
+  The output contains \Verb{susp = ^Z} and \Verb{isig}, which means that the
+  kernel will send a \Verb{SIGTSTP} signal to the terminal's foreground process
+  group upon reception of the \Verb{^Z} character (i.e. Control-Z).
+\item Run the \Verb{tetris} command to play Tetris. The game's interface from
+  Figure~\ref{fig:tetris} should be displayed, with game instructions visible at
+  the bottom of the screen.
+\item With the game running, type \Verb{^Z}. The game will stop, and the shell
+  will return to the foreground.
+\item Run the \Verb{jobs} command to display all jobs that the shell is aware
+  of. It will display the \Verb{tetris} job and indicate its status (stopped).
+\item To resume the stopped \Verb{tetris} job, run the \Verb{fg} command.
+\end{enumerate}
+
+\subsubsection*{Changing control characters using \Verb{stty}}
+
+\begin{enumerate}
+\item List current terminal settings:\\
+  \Verb{stty -a}\\
+  The output contains \Verb{intr = ^C} and \Verb{isig}, which means that the
+  kernel will send a \Verb{SIGINT} signal to the terminal's foreground process
+  group upon reception of the \Verb{^C} character (i.e. Control-C).
+\item To ensure that \Verb{^C} does what it's supposed to do, run the \Verb{cat}
+  command without any arguments. The \Verb{cat} command reads characters from
+  standard input (i.e. the terminal), and writes them to standard output (which
+  is also the terminal in this case). The reader can confirm this by typing a
+  line of text and pressing the Enter key: the line will be output by the
+  process. After typing \Verb{^C}, however, the process terminates.
+\item Change the \Verb{VINTR} control character to \Verb{x} using the following command:\\
+  \Verb{stty intr x}\\
+  The reader can verify that the control character has been changed by running
+  \Verb{stty -a} again.
+\item Run the \Verb{cat} command again. This time, typing \Verb{^C} does not
+  terminate the process, but typing \Verb{x} does.
+\end{enumerate}
 
 \bibliography{bibliography}
 \bibliographystyle{myplain}
