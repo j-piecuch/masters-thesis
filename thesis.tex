@@ -3646,11 +3646,19 @@ Consider the following sequence of events:
 Clearly, neither thread can proceed, since each thread is waiting for a lock
 that is held by the other thread. Hence, we have a deadlock.
 
+A bit more formally, the deadlock occurs because of a \textit{circular
+  wait}~\cite[Section~8.3.1]{silberschatz}. A circular wait happens whenever
+there is a set of threads $\{T_1, T_2,\ldots,T_n\}$ such that $T_k$ is waiting for
+a resource held by $T_{k+1}$ for all $k \in \{1,\ldots,n-1\}$, and $T_n$ is
+waiting for a resource held by $T_1$.
+
 One of the most common ways to prevent such deadlocks, employed e.g.\ by FreeBSD
 \cite[Section~4.3, Subsection ``Deadlock Prevention'']{freebsd-book} is to
 impose an \textit{ordering} on the locks and require that locks are always
-acquired according to that ordering. For instance, if we imposed an ordering
-that placed \Verb{mtx_a} before \Verb{mtx_b}, it would be illegal to acquire
+acquired according to that ordering~\cite[Section~8.5.4]{silberschatz}. The
+ordering must be free of cycles. This freedom from cycles ensures that a
+circular wait can never happen. For instance, if we imposed an ordering that
+placed \Verb{mtx_a} before \Verb{mtx_b}, it would be illegal to acquire
 \Verb{mtx_a} while holding \Verb{mtx_b}. If a thread wanted to acquire both
 mutexes, it would need to acquire \Verb{mtx_a} first and then \Verb{mtx_b}.
 Thus, the two threads from the example would acquire the two mutexes in the same
@@ -3658,13 +3666,23 @@ ordering, preventing a deadlock from happening.
 
 The Mimiker kernel tries to avoid deadlocks using this method. Whenever multiple
 locks are acquired, they are acquired according to an informally defined
-ordering. During the integration of the terminal subsystem with other subsystems
-of the kernel (e.g. signal handling), the per-terminal
+ordering. This ordering is defined on lock \textit{classes}. A lock class
+encompasses locks which are the same member of a certain kernel data type. For
+instance, the \Verb{p_lock} mutexes of all \Verb{proc_t} structures constitute a
+lock class. Global locks are in a class containing only that lock. Note that an
+ordering on lock classes can be extended into an ordering on lock instances by
+making locks within the same class incomparable, and comparing classes when
+comparing locks from different classes. This order on instances can be extended
+by rules that order locks within a single class, as long as the ordering within
+each class remains free of cycles.
+
+During the integration of the terminal subsystem with other subsystems of the
+kernel (e.g. signal handling), the lock class of the per-terminal
 \Verb{t_lock}\footnote{The per-terminal \Verb{t_lock} mutex synchronizes
   accesses to all mutable members of the \Verb{tty_t} structure, see e.g.\
   Listing~\ref{lst:tty-do-write}.} embedded in the \Verb{tty_t} structure had to
-be placed somewhere in the lock ordering. This posed some problems, as the
-following example illustrates.
+be placed somewhere in the ordering of all lock classes. This posed some
+problems, as the following example illustrates.
 
 Consider what happens when a session leader terminates. If the session has a
 controlling terminal, and the terminal has a foreground process group, then
