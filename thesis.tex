@@ -142,33 +142,37 @@ with a single argument, respectively: \Verb{/etc/passwd}, \Verb{user} and
 \Verb{hello}. The output of \Verb{cat /etc/passwd} is fed to \Verb{grep user} as
 input thanks to the \Verb{|} (``pipe'') symbol between them.
 
-The \Verb{cat} and \Verb{grep} programs constitute a single \textit{job}. A job
-is group of programs accomplishing a single logical task. In this case, the job
+The \Verb{cat} and \Verb{grep} programs constitute a single
+\textit{job}~\cite[Section~3.202]{posix-defs}. A job is group of programs
+accomplishing a single logical task. In this case, the job
 \Verb{cat /etc/passwd | grep user} finds the lines in the \Verb{/etc/passwd}
 file containing the string \Verb{user}. The \Verb{echo hello} program is
 launched as a job containing a single program --- itself. We will discuss the
-meaning of the \Verb{&} symbol shortly. 
+meaning of the \Verb{&} symbol shortly.
 
 Job control refers to the ability of the user and the shell to monitor and
-control running jobs. We will now discuss the most important use cases for job
-control which have been made possible on Mimiker thanks to the implementation of
-missing functionality by the author.
+control running jobs~\cite[Section~3.203]{posix-defs}~\cite[Section~9.8]{apue}.
+We will now discuss the most important use cases for job control which have been
+made possible on Mimiker thanks to the implementation of missing functionality
+by the author.
 
 \subsubsection*{Foreground and background jobs}
 
 The \Verb{&} symbol separating the two jobs in the example command makes the
-first job run in the \textit{background}, and the second one in the
-\textit{foreground}. Only one job can be in the foreground at any time.
-Background jobs are restricted from writing output and reading input from the
-terminal. While the foreground job is running, the shell cannot accept new
-commands from the user, as it is waiting for the foreground job to complete.
+first job run in the \textit{background}~\cite[Section~3.35]{posix-defs}, and
+the second one in the \textit{foreground}~\cite[Section~3.184]{posix-defs}. Only
+one job can be in the foreground at any time. Background jobs are restricted
+from writing output and reading input from the terminal. While the foreground
+job is running, the shell cannot accept new commands from the user, as it is
+waiting for the foreground job to complete.
 
 \subsubsection*{Stopping and resuming jobs}
 
 The foreground job may be stopped by the user by pressing a special key on the
 keyboard. When a job is stopped, all processes constituting it prevented from
-running. A background job can be put in the foreground using the \Verb{fg}
-shell command, which will also resume the target job if it was stopped.
+running. A background job can be put in the foreground using the
+\Verb{fg}~\cite{fg-command} shell command, which will also resume the target job
+if it was stopped.
 
 \subsubsection*{Notification of job status changes}
 
@@ -178,10 +182,11 @@ Also, if the foreground job becomes stopped, the shell detects it and puts
 itself in the foreground, awaiting commands from the user.
 
 Jobs are purely a shell concept, but they closely map to entities within the
-kernel called \textit{process groups}. When a shell runs a new job, it puts all
-the processes in the job in the same process group, so that they can be managed
-as a single unit. The discussion in subsequent chapters does not mention jobs,
-focusing on process groups instead.
+kernel called \textit{process
+  groups}~\cite[Section~3.296]{posix-defs}~\cite[Section~9.4]{apue}. When a
+shell runs a new job, it puts all the processes in the job in the same process
+group, so that they can be managed as a single unit. The discussion in
+subsequent chapters does not mention jobs, focusing on process groups instead.
 
 \section{Introduction to terminals}
 
@@ -203,11 +208,12 @@ character being received.
 
 \subsubsection*{Pseudoterminals}
 
-A \textit{pseudoterminal} consists of a pair of devices (in the OS, not actual
-hardware devices): one appears to processes as a regular terminal device, and
-the other one is a special device which can be used by a process to
-\textit{emulate} a hardware terminal device in software. They are commonly used
-by terminal emulators.
+A
+\textit{pseudoterminal}~\cite[Section~3.308]{posix-defs}~\cite[Chapter~19]{apue}
+consists of a pair of devices (in the OS, not actual hardware devices): one
+appears to processes as a regular terminal device, and the other one is a
+special device which can be used by a process to \textit{emulate} a hardware
+terminal device in software. They are commonly used by terminal emulators.
 
 \subsubsection*{Ported libraries and programs}
 
@@ -252,17 +258,18 @@ listings.
 It is assumed that the reader has a basic understanding of operating systems,
 obtained e.g.\ by attending a university course. The following is a
 non-exhaustive list of terms used throughout this thesis, which the reader is
-assumed to be familiar with:
+assumed to be familiar with (although each item is accompanied by a reference to
+a quick refresher):
 \begin{itemize}
-  \item Kernel: the portion of an OS running with special privileges.
-  \item The distinction between the kernel and userspace.
-  \item Process: an instance of an executing program.
+  \item Kernel: the portion of an OS running with special privileges~\cite[Section~1.1.3]{silberschatz}.
+  \item The distinction between the kernel and userspace~\cite[Section~1.4.2]{silberschatz}.
+  \item Process: an instance of an executing program~\cite[Section~1.4.1]{silberschatz}.
   \item Thread: the basic unit of scheduling. Note: at the time of writing, the
-    Mimiker kernel does not support processes with more than one thread.
+    Mimiker kernel does not support processes with more than one thread~\cite[Section~3.1.4]{silberschatz}.
   \item System call: the mechanism used by threads to request services from the
-    kernel.
+    kernel~\cite[Section~2.3]{silberschatz}.
   \item Interrupt: the mechanism used by hardware devices to request services
-    from the kernel or to notify it of some event.
+    from the kernel or to notify it of some event~\cite[Section~1.2.1]{silberschatz}.
 \end{itemize}
 
 The implementation of certain aspects of job control, e.g. stopping processes,
@@ -545,7 +552,8 @@ this requirement, acquiring a mutex while holding a spinlock is strictly forbidd
 Another significant difference between mutexes and spinlocks is a feature called
 \textit{priority propagation}. In essence, it boosts the scheduling priority of
 the owner of a lock if a higher-priority thread is waiting for that lock. This
-solves the problem of \textit{priority inversion}. For more information about
+solves the problem of \textit{priority
+  inversion}~\cite[Section~6.8.2]{silberschatz}. For more information about
 priority inversion, as well as the implementation of priority propagation in the
 Mimiker kernel, see \cite{julian-thesis}. Table~\ref{tab:mutex-spinlock}
 provides a summary of the differences between mutexes and spinlocks in the
@@ -777,43 +785,49 @@ operating system.
 
 \subsubsection{POSIX process groups}
 
-Process groups are central to job control. They relate processes performing a
-common task, such as a shell pipeline. Process groups are identified by a unique
-\textit{process group ID}, or \textit{PGID} for short.
+Process groups~\cite[Section~3.296]{posix-defs}~\cite[Section~9.4]{apue} are
+central to job control. They relate processes performing a common task, such as
+a shell pipeline. Process groups are identified by a unique \textit{process
+  group ID}, or \textit{PGID} for short.
 
 Every process belongs to exactly one process group. When a new process is
-created using \Verb{fork()}\cite{fork}, it joins the process group of its
-parent. A process can change its own process group, or that of one of its
-children. This is done using the \Verb{setpgid()}\cite{setpgid} function. It is
-used by the shell to set the process group of all processes in a job.
+created using \Verb{fork()}\cite{fork}~\cite[Section~8.3]{apue}, it joins the
+process group of its parent. A process can change its own process group, or that
+of one of its children. This is done using the \Verb{setpgid()}\cite{setpgid}
+function. It is used by the shell to set the process group of all processes in a
+job.
 
 There is a correspondence between process IDs and process groups IDs: every
 newly created process group's ID is equal to the process ID of its first
-inhabitant, also called the \textit{process group leader}. The leader process is
-not special in any way, other than the fact that its PID is equal to the PGID of
-the group it is in.
+inhabitant, also called the \textit{process group
+  leader}~\cite[Section~3.298]{posix-defs}. The leader process is not special in
+any way, other than the fact that its PID is equal to the PGID of the group it
+is in.
 
 Process groups are useful from a job control perspective, since certain POSIX
-functions like \Verb{waitpid()}\cite{wait} and \Verb{kill()}\cite{kill} can
-operate on entire process groups. For instance, \Verb{waitpid()} allows the
-caller to wait for a status change of any child process in the specified process
-group.
+functions like \Verb{waitpid()}\cite{wait}~\cite[Section~8.6]{apue} and
+\Verb{kill()}\cite{kill}~\cite[Section~10.9]{apue} can operate on entire process
+groups. For instance, \Verb{waitpid()} allows the caller to wait for a status
+change of any child process in the specified process group.
 
 \subsubsection{POSIX sessions}
 
-The concept of a session is fairly intuitive.
-A new session starts when a user logs into the system. Initially, the user's
-shell is the only process in the session. All jobs (and therefore process
-groups) created by the shell belong to the same session. Every process group
-must belong to exactly one session. Sessions are collections of process groups,
-much in the same way as process groups are collections of processes. A notable
-difference is that a process group cannot change its session during its
-lifetime, while a process can change its process group. Like processes and
-process groups, sessions have numeric identifiers called session IDs, or SIDs.
+The concept of a
+session~\cite[Section~3.343]{posix-defs}~\cite[Section~9.5]{apue} is fairly
+intuitive. A new session usually starts when a user logs into the system.
+Initially, the user's shell is the only process in the session. All jobs (and
+therefore process groups) created by the shell belong to the same session. Every
+process group must belong to exactly one session. Sessions are collections of
+process groups, much in the same way as process groups are collections of
+processes. A notable difference is that a process group cannot change its
+session during its lifetime, while a process can change its process group. Like
+processes and process groups, sessions have numeric identifiers called session
+IDs, or SIDs.
 
 A session may have an associated terminal device. That terminal device is called
-the session's \textit{controlling terminal}. They will be explained in detail in
-the next chapter.
+the session's \textit{controlling
+  terminal}~\cite[Section~3.115]{posix-defs}~\cite[Section~9.6]{apue}. They will
+be explained in detail in the next chapter.
 
 Processes are not confined to their session: they can separate from it by
 creating their own session using the \Verb{setsid()}\cite{setsid} function. It
@@ -823,14 +837,14 @@ creating a new process group: if it didn't, we could have two processes in the
 same process group, but in different sessions. The SID of the newly created
 session is equal to the PID of the creating process.
 
-The process that creates a new session is called the \textit{session leader}.
-Usually, the session leader a is shell, or some other program ``in charge'' of
-running and controlling all other programs in the session. It is supposed to
-be the last process in its session to exit. If a session leader exits while its
-session contains other processes, every process in the session will receive a
-\Verb{SIGHUP} signal, whose default effect is to kill the receiving process.
-Processes can ignore this signal, so it is possible for a session to outlive its
-leader.
+The process that creates a new session is called the \textit{session
+  leader}~\cite[Section~3.344]{posix-defs}. Usually, the session leader a is
+shell, or some other program ``in charge'' of running and controlling all other
+programs in the session. It is supposed to be the last process in its session to
+exit. If a session leader exits while its session contains other processes,
+every process in the session will receive a \Verb{SIGHUP} signal, whose default
+effect is to kill the receiving process. Processes can ignore this signal, so it
+is possible for a session to outlive its leader.
 
 Some programs are supposed to run indefinitely and without user intervention. A
 good example are \textit{daemons}: programs that run in the background, e.g.
@@ -874,9 +888,10 @@ no longer be a process managing these jobs. Specifically, there might no longer
 be a process that can continue stopped jobs. Those jobs are doomed to being
 stopped forever!
 
-This is where the concept of \textit{orphaned process groups} comes into play. A
-process group is orphaned when none of the processes in the group have a parent
-that is in the same session, but in a different process group.
+This is where the concept of \textit{orphaned process
+  groups}~\cite[Section~3.264]{posix-defs}~\cite[Section~9.10]{apue} comes into
+play. A process group is orphaned when none of the processes in the group have a
+parent that is in the same session, but in a different process group.
 
 Consider the example of a shell: all jobs are in a different process group, but
 in the same session as the shell. Therefore, as long the shell is alive, the
@@ -1270,11 +1285,10 @@ change the process group of the calling process to the one we just created.
 
 \subsection{POSIX signals}\label{chap:signals}
 
-\textit{Signals} are used to notify processes of various events. These events
-can occur \textit{synchronously} or \textit{asynchronously} with respect to the
-process receiving the signal. POSIX signal semantics are (intentionally) very
-similar to those found in the original UNIX operating system
-\cite[Section~7.2]{unix-book}.
+\textit{Signals}~\cite[Section~3.350]{posix-defs}~\cite[Chapter~10]{apue} are
+used to notify processes of various events. These events can occur
+\textit{synchronously} or \textit{asynchronously} with respect to the process
+receiving the signal.
 
 A \textit{synchronous signal} is sent as a direct consequence of some (usually
 erroneous) action being performed by the receiving process. For instance, a
@@ -1286,10 +1300,11 @@ receiving process, and may be received at any time. For example, whenever a
 process terminates, the system sends a \Verb{SIGCHLD} signal to its parent.
 
 Signals can be sent by the operating system in response to certain events (e.g.
-process termination), or by other processes, using the \Verb{kill()} function
-\cite{kill}. A process can send a signal to itself using the \Verb{raise()}
-function. As a shorthand, we shall say that a signal is sent to a process
-group when it's sent to every process that is a member of the group.
+process termination), or by other processes, using the \Verb{kill()}
+function~\cite{kill}~\cite[Section~10.9]{apue}. A process can send a signal to
+itself using the \Verb{raise()} function. As a shorthand, we shall say that a
+signal is sent to a process group when it's sent to every process that is a
+member of the group.
 
 The type of signal (\Verb{SIGSEGV}, \Verb{SIGCHLD}, etc.) is determined by
 the \textit{signal number}. In fact, \Verb{SIGSEGV} and others are \textit{C
@@ -1298,8 +1313,8 @@ the \textit{signal number}. In fact, \Verb{SIGSEGV} and others are \textit{C
 Processes can take different actions in response to signals with different
 numbers. Every process has its own set of \textit{signal actions} associated
 with every signal number. The action associated with a signal is also called its
-\textit{disposition}. There are three possible actions that can be taken in
-response to a signal:
+\textit{disposition}~\cite[Section~10.2]{apue}. There are three possible actions
+that can be taken in response to a signal:
 \begin{enumerate}
 \item Take the default action for that signal number.
   
@@ -1314,23 +1329,25 @@ response to a signal:
 \end{enumerate}
 
 The mapping of signal numbers to signal actions is controlled using the
-\Verb{sigaction()} function \cite{sigaction}. Not every signal can have its
-action modified: \Verb{SIGKILL} and \Verb{SIGSTOP} cannot have their actions
-changed from the default one, which is to terminate or stop the receiving process,
-respectively.
+\Verb{sigaction()} function~\cite{sigaction}~\cite[Section~10.14]{apue}. Not
+every signal can have its action modified: \Verb{SIGKILL} and \Verb{SIGSTOP}
+cannot have their actions changed from the default one, which is to terminate or
+stop the receiving process, respectively.
 
 The \textit{delivery} of a signal occurs when the target (i.e. receiving)
-process takes the action associated with the signal. A signal may be delivered
-long after it is initially sent, or it may not be delivered at all, even if it
-isn't ignored. This is because a process may \textit{block} a set of signals
-from being delivered. A blocked signal cannot be delivered until it is
-unblocked. Contrary to signals that are ignored, blocked signals await delivery
-instead of being discarded.
+process takes the action associated with the signal~\cite[Section~10.8]{apue}. A
+signal may be delivered long after it is initially sent, or it may not be
+delivered at all, even if it isn't ignored. This is because a process may
+\textit{block} a set of signals from being delivered. A blocked signal cannot be
+delivered until it is unblocked. Contrary to signals that are ignored, blocked
+signals await delivery instead of being discarded. A signal that is awaiting
+delivery is said to be \textit{pending}.
 
 The \textit{signal mask} determines the set of blocked signals for a thread. It
-can be examined and modified using the \Verb{sigprocmask()} function
-\cite{sigprocmask}. Unsurprisingly, the \Verb{SIGKILL} and \Verb{SIGSTOP}
-signals cannot be blocked from being delivered.
+can be examined and modified using the \Verb{sigprocmask()}
+function~\cite{sigprocmask}~\cite[Section~10.12]{apue}. Unsurprisingly, the
+\Verb{SIGKILL} and \Verb{SIGSTOP} signals cannot be blocked from being
+delivered.
 
 \subsection{Signals used for job control}
 \label{job-control-signals}
@@ -1970,12 +1987,13 @@ processes and terminal devices is shown in Figure~\ref{fig:term-hilevel}.
 
 \subsubsection{Controlling terminals}
 
-A terminal may be designated as the controlling terminal of a session. A session
-may have at most one controlling terminal, and a terminal may be the
-controlling terminal of at most one session. A process can always access its
-controlling terminal (if it has one) by opening the \Verb{/dev/tty} device file.
-We define the controlling terminal of a process to be simply the controlling
-terminal of that process's session.
+A terminal may be designated as the controlling
+terminal~\cite[Section~9.6]{apue} of a session. A session may have at most one
+controlling terminal, and a terminal may be the controlling terminal of at most
+one session. A process can always access its controlling terminal (if it has
+one) by opening the \Verb{/dev/tty} device file. We define the controlling
+terminal of a process to be simply the controlling terminal of that process's
+session.
 
 When a session is created, it has no controlling terminal. The session leader is
 responsible for setting and changing the controlling terminal device, although
@@ -2004,10 +2022,11 @@ foreground and background process groups.
 A process group may be designated as the foreground process group of its
 session's controlling terminal. All other process groups in the session are
 background process groups. The foreground process group of a terminal can be set
-using the \Verb{tcsetpgrp()}\cite{tcsetpgrp} function. Any process can set the
-foreground process group of its controlling terminal, although some restrictions
-apply to processes from background process groups. A controlling terminal does
-not need to have a foreground process group at all times.
+using the \Verb{tcsetpgrp()}\cite{tcsetpgrp}~\cite[Section~9.7]{apue} function.
+Any process can set the foreground process group of its controlling terminal,
+although some restrictions apply to processes from background process groups. A
+controlling terminal does not need to have a foreground process group at all
+times.
 
 Processes in the foreground process group are allowed to \Verb{read()} and
 \Verb{write()} to their controlling terminal. When a process in a background
@@ -2075,8 +2094,9 @@ basic line-editing functionality is provided by the operating system itself.
 Applications may choose whether they want to use this functionality by choosing
 the \textit{terminal mode}. Two terminal modes are distinguished:
 \textit{canonical} and \textit{non-canonical}, the former providing basic line
-editing. The terminal mode has no influence over other aspects of input
-processing, such as sending signals in response to certain control characters.
+editing~\cite[Section~18.2]{apue}. The terminal mode has no influence over other
+aspects of input processing, such as sending signals in response to certain
+control characters.
 
 In canonical mode, typed characters are appended to the \textit{line buffer}.
 Characters may be erased from the line buffer by typing the special characters
@@ -2164,13 +2184,18 @@ The \Verb{termios} structure must contain the following fields:
   \end{itemize}
 \end{itemize}
 The current values of terminal flags and control characters can be examined from
-the shell using the \Verb{stty} program~\cite{stty}, available on most UNIX-like operating
-systems, including Linux. To list the current values of all terminal flags and
-control characters for the shell's controlling terminal, use the command:
+the shell using the \Verb{stty} program~\cite{stty}~\cite[Section~18.6]{apue},
+available on most UNIX-like operating systems, including Linux. To list the
+current values of all terminal flags and control characters for the shell's
+controlling terminal, use the command:
 \begin{quote}
   \Verb{stty -a}
 \end{quote}
 For the full specification of the \Verb{termios} structure, see~\cite{termios}.
+Implementations of POSIX may extend the available flags, control characters and
+fields of the \Verb{termios} structure. For instance, \Verb{WERASE}
+(\textit{word erase}) is an additional control character supported by many
+kernels. These extensions are documented thoroughly in Sections~18.2 and 18.3 of \cite{apue}.
 
 \subsection{Terminals in the Mimiker kernel}\label{chap:mimiker-tty}
 
@@ -2787,15 +2812,15 @@ The \Verb{tcgetpgrp()} and \Verb{tcsetpgrp()} functions are provided by the
 standard C library. Their implementations use the \Verb{ioctl()} system call
 to perform the required operation.
 
-\Verb{ioctl()} is a very general, catch-all system call that is most commonly
-used to provide functionality that is too simple to merit a separate system
-call. It takes as arguments a file descriptor, an \textit{opcode} (short for
-\textit{operation code}), and a generic argument. The opcode is simply a numeric
-value that tells the kernel what operation to perform. The argument's
-interpretation depends on the specific opcode. Most opcodes are only valid for
-file descriptors of a certain type, e.g.\ ones representing terminals. The
-opcodes used for getting and setting the foreground process group are
-\Verb{TIOCGPGRP} and \Verb{TIOCSPGRP} respectively.
+\Verb{ioctl()}\cite[Section~3.15]{apue} is a very general, catch-all system call
+that is most commonly used to provide functionality that is too simple to merit
+a separate system call. It takes as arguments a file descriptor, an
+\textit{opcode} (short for \textit{operation code}), and a generic argument. The
+opcode is simply a numeric value that tells the kernel what operation to
+perform. The argument's interpretation depends on the specific opcode. Most
+opcodes are only valid for file descriptors of a certain type, e.g.\ ones
+representing terminals. The opcodes used for getting and setting the foreground
+process group are \Verb{TIOCGPGRP} and \Verb{TIOCSPGRP} respectively.
 
 When the foreground process group becomes empty, the terminal's \Verb{t_pgrp}
 field is set to \Verb{NULL}. Thus, a terminal does not need to have a
@@ -3158,11 +3183,14 @@ the emulated terminal. It also reads the characters output by processes and
 displays them in the emulated terminal window.
 
 The OS facility which allows for the emulation of a terminal device in software
-is called a \textit{pseudoterminal}. A terminal emulator is far from the only
-use case for pseudoterminals. Programs like \Verb{sshd} (an SSH server) or
-\Verb{script} (which records an interactive terminal session into a file) also
-use pseudoterminals as a basic component. We will now take a look at how POSIX
-specifies their operation.
+is called a
+\textit{pseudoterminal}~\cite[Section~3.308]{posix-defs}~\cite[Chapter~19]{apue}.
+A terminal emulator is far from the only use case for pseudoterminals. Programs
+like \Verb{sshd} (an SSH server) or \Verb{script} (which records an interactive
+terminal session into a file) also use pseudoterminals as a basic component
+(see~\cite[Section~64.1]{tlpi} for a good explanation of how an SSH server uses
+pseudoterminals). We will now take a look at how POSIX specifies their
+operation.
 
 \subsection{POSIX pseudoterminals}
 
@@ -3188,11 +3216,13 @@ devices is shown in Figure~\ref{fig:term-hilevel-pty}.
 \end{figure}
 
 A new pseudoterminal can be created using the
-\Verb{posix_openpt()}\cite{posix-openpt} function. It returns an open file
-descriptor to the master device of a pseudoterminal. Note that the master device
-isn't exposed in the filesystem: initially only the the process that created the
-pseudoterminal has access to the master device (although it can duplicate and
-transfer the file descriptor to another process).
+\Verb{posix_openpt()}\cite{posix-openpt}~\cite[Section~19.3]{apue} function. It
+returns an open file descriptor to the master device of a pseudoterminal. Note
+that the master device isn't exposed in the filesystem\footnote{On BSD systems,
+  pseudoterminal master devices are accessible via the
+  filesystem~\cite[Section~64.8]{tlpi}.}: initially only the the process that
+created the pseudoterminal has access to the master device (although it can
+duplicate and transfer the file descriptor to another process).
 
 Once a pseudoterminal is created, its slave device is accessible via the
 filesystem. The slave device files are usually inside the \Verb{/dev/pts}
@@ -3361,7 +3391,7 @@ character at \ref{m3}, since we failed to properly consume it. To do that, we
 \ref{m5} restore the previously saved state of the I/O operation. After rolling
 back, we break out of the loop and return with an error code.
 
-\chapter{Implementation Challenges}
+\chapter{Implementation Challenges}\label{chap:impl-challenges}
 
 In order to properly implement terminal and job control support in the Mimiker
 kernel, many seemingly unrelated issues needed to be resolved. Some of them were
@@ -3381,7 +3411,8 @@ when porting the \Verb{tetris} program.
 When a process performs certain I/O operations (e.g. reading from a terminal),
 if the data isn't immediately available, the calling thread will \textit{sleep}
 (i.e. suspend execution in the kernel) awaiting the data. Two kinds of sleep are
-usually distinguished: \textit{interruptible} and \textit{uninterruptible}.
+usually distinguished: \textit{interruptible} and
+\textit{uninterruptible}~\cite[Section~4.2,~Subsection~``The~Process~Structure'']{freebsd-book}.
 Interruptible sleep is used in case of I/O that may take an arbitrarily long
 time to complete, as is the case when reading from a terminal --- there is no
 guarantee that data will eventually arrive. Uninterruptible sleep is used when
@@ -3567,9 +3598,10 @@ turned out not to be a big problem.
 As explained in Section~\ref{chap:locking-intro}, locking primitives such as
 mutexes are used to synchronize concurrent accesses to members of data
 structures that are shared between threads. When using these locking primitives,
-care must be taken to prevent \textit{deadlocks}. A deadlock occurs when a group
-of two or more threads is stuck, with each thread in the group waiting for a
-resource that is held by another thread in the group.
+care must be taken to prevent
+\textit{deadlocks}~\cite[Section~6.8.1]{silberschatz}. A deadlock occurs when a
+group of two or more threads is stuck, with each thread in the group waiting for
+a resource that is held by another thread in the group.
 
 The simplest example of a deadlock is when two threads each attempt to acquire
 two mutexes: \Verb{mtx_a} and \Verb{mtx_b}, with thread 1 acquiring the mutexes
@@ -3865,7 +3897,7 @@ environment.
     board emulated using QEMU.}
   \label{fig:tetris}
 \end{figure}
-\chapter{Conclusion, future work, and usage instructions}
+\chapter{Conclusion, future work, and usage instructions}\label{chap:conclusion}
 
 In this chapter, the author's contributions to the Mimiker OS and elsewhere are
 first summarized. After that, we lay out notable differences between the POSIX
