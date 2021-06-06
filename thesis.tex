@@ -1963,9 +1963,11 @@ processing, it is buffered in the \textit{input queue}. Processes calling
 When a process writes data to a terminal file descriptor using \Verb{write()},
 after processing, the data may be written directly to the underlying terminal
 device, or it may be buffered by the OS in the terminal's \textit{output queue}
-and output asynchronously relative to the \Verb{write()} call. Most operating
-systems choose the latter approach, and the same choice is made in the Mimiker
-kernel.
+and output asynchronously relative to the \Verb{write()} call. Buffering is a
+good idea in most cases, since the rate at which the terminal device is able to
+accept characters is usually far slower than the rate at which the CPU can
+supply those characters. Most operating systems systems choose the buffering
+approach, and the same choice has been made in the Mimiker kernel.
 
 Processes performing output are not the only source of characters for the
 terminal's output queue: if the \Verb{ECHO} terminal flag is set, characters
@@ -3754,11 +3756,13 @@ A parent may be waiting for a child process's state to change using the
 \Verb{waitpid()} function. Resuming a process using the \Verb{SIGCONT} signal
 counts as a state change. Therefore, the parent of a stopped process receiving a
 \Verb{SIGCONT} signal must be notified of the state change. This notification
-happens inside the \Verb{sig_kill()} function. The code of the \Verb{wait4()}
-system call (which implements the \Verb{waitpid()} POSIX function) used
-\Verb{all_proc_mtx} to synchronize with \Verb{sig_kill()}, so if we were to
-remove \Verb{all_proc_mtx} from \Verb{sig_kill()}, we would also need to adjust
-the \Verb{wait4()} system call's code.
+happens inside the \Verb{proc_continue()} (see Listing~\ref{lst:proc-continue})
+function, which is called from \Verb{sig_kill()} (see
+Listing~\ref{lst:sig-kill}). The code of the \Verb{wait4()} system call (which
+implements the \Verb{waitpid()} POSIX function) used \Verb{all_proc_mtx} to
+synchronize with \Verb{sig_kill()}, so if we were to remove \Verb{all_proc_mtx}
+from \Verb{sig_kill()}, we would also need to adjust the \Verb{wait4()} system
+call's code.
 
 Another complication is that in order to notify the parent, we need to access
 the \Verb{p_parent} field of the process receiving the signal. Since this field
@@ -3785,13 +3789,14 @@ the parent's \Verb{p_lock} \textit{while} holding its child's \Verb{p_lock}.
 This used to be forbidden by the locking rules. However, note that we can safely
 acquire the parent's mutex if we enforce the following rule:
 \begin{quote}
-  \textit{The \Verb{p_lock} of the parent of a process \Verb{p} may be acquired
+  \textit{The \Verb{p_lock} of the parent of process \Verb{p} may be acquired
     while holding the \Verb{p_lock} of \Verb{p}, but not the other way around.}
 \end{quote}
-Since the process hierarchy forms a tree, there are no cycles, so it is
-impossible for a deadlock to occur. We could extend this rule to arbitrary
-ancestors instead of just the parent, but currently it does not bring any
-additional benefits.
+Since the process hierarchy forms a tree, there are no cycles. Therefore, we can
+extend the existing ordering of lock instances (induced by the ordering of lock
+classes) by the aforementioned rule while still preventing deadlocks. We could
+extend this rule to arbitrary ancestors instead of just the parent, but
+currently it does not bring any additional benefits.
 
 With these adjustments in place, the \Verb{sig_kill()} function no longer
 requires \Verb{all_proc_mtx} to be held by the caller, and it's possible to send
@@ -4093,9 +4098,11 @@ applications and games with impressive text-based interfaces.
 
 \section{Compilation and usage instructions}
 This section presents step-by-step instructions on how to compile and run
-Mimiker, as well as some shell commands that showcase the functionality
-implemented by the author. The \Verb{git} and \Verb{docker} programs are assumed
-to be installed on the reader's system.
+Mimiker, as well as some shell commands that demonstrate the functionality
+implemented by the author. The reader is encouraged to compile the system
+themselves and test the system's capabilities using the supplied shell commands.
+The \Verb{git} and \Verb{docker} programs are assumed to be installed on the
+reader's system.
 
 \subsection*{Compiling Mimiker}
 
