@@ -1745,7 +1745,7 @@ unable to run until the process is continued.
 The \Verb{proc_stop()} function stops the current process in response to a stop
 signal. Its source code is listed in Listing~\ref{lst:proc-stop}.
 
-\begin{listing}[H]
+\begin{listing}[h]
 \begin{minted}{c}
 void proc_stop(signo_t sig) {
   thread_t *td = thread_self();
@@ -2009,7 +2009,7 @@ kernel does not. The behaviour found in Mimiker is a conscious design decision
 made by the author for the sake of simplicity.
 
 If a controlling terminal disappears from the system (e.g.\ due to the terminal
-device no longer being available), the leader of the associated session, is sent
+device no longer being available), the leader of the associated session is sent
 a \Verb{SIGHUP} signal. The signal is sent only to the leader, not to all
 processes in the session. Note that the signal is not necessarily fatal, as it
 can be caught or ignored by any process.
@@ -3399,7 +3399,7 @@ unimplemented features, while others concerned more fundamental design choices
 in the kernel. This chapter describes a number of interesting issues that arose,
 and how they have been resolved.
 
-This first issue concerns the way stop signals (e.g. \Verb{SIGSTOP}) interact
+The first issue concerns the way stop signals (e.g. \Verb{SIGSTOP}) interact
 with threads that are sleeping interruptibly. The second one arose when trying
 to reconcile the existing locking rules with the terminal subsystem's
 requirements. The last challenge described involves working around Mimiker's
