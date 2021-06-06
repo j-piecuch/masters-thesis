@@ -100,12 +100,31 @@ display the emulated terminal's screen in a graphical window.
 The Mimiker operating system lacks a graphical environment, which leaves a
 text-based interface as the only sensible alternative. However, the OS was
 lacking common features, which limited the usability of more advanced
-applications, such as shells. This thesis describes the implementation of two
-such features: \textit{job control} and the \textit{terminal subsystem}.
+applications, such as shells. Two crucial features that were missing are
+\textit{job control} and the \textit{terminal subsystem}. These have been
+implemented by the author, and are the primary subject of this thesis. In
+addition, several programs making use of these features have been ported to the
+Mimiker OS by the author, chief among them the well-known game of Tetris. The
+game makes use of advanced terminal features such as random cursor movement and
+coloured output. It can also be used to show the system's job control
+capabilities, such as the ability to stop the game's process by typing \Verb{^Z}
+(Control-Z) on the keyboard. Another contribution made by the author is finding
+three bugs in the terminal subsystem of the FreeBSD kernel. The FreeBSD
+operating system\footnote{\url{https://www.freebsd.org/}} is a widely used
+production-grade OS, used by companies such as Netflix and
+Sony~\cite[Section~1.2.2]{freebsd-handbook}.
+
+The structure of this thesis is as follows: this chapter provides an
+introduction to job control, terminals, and the Mimiker kernel.
 Chapter~\ref{chap:job-control} describes in detail the implementation of job
-control, while Chapter~\ref{chap:tty} presents the terminal subsystem. We will
-now provide an introductory explanation of these features, and how applications
-make use of them.
+control, while Chapter~\ref{chap:tty} presents the terminal subsystem. Both
+chapters begin with on overview of the relevant parts of the POSIX
+specification. In Chapter~\ref{chap:impl-challenges} we dive into interesting
+technical issues which arose while implementing the two primary features.
+Chapter~\ref{chap:conclusion} concludes with a summary of the author's
+contributions, potential directions for related future work in Mimiker, and
+instructions for compiling and running Mimiker, should the reader want to try
+it out themselves.
 
 \section{Introduction to job control}
 
