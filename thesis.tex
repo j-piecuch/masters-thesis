@@ -2529,22 +2529,18 @@ sake of readability.
 \begin{minted}{c}
 void tty_input(tty_t *tty, uint8_t c) {
   handle IGNCR, ICRNL and INLCR flags;
-
-  if (ISIG flag is set) {
-    /* Signal processing */
+  if (ISIG flag is set) { /* Signal processing */
     if (c is VINTR or VSUSP or VQUIT) {
       send the appropriate signal to the foreground process group;
       return;
     }
   }
-  if (ICANON flag is set) {
-    /* Line editing */
+  if (ICANON flag is set) { /* Line editing */
     if (c is VERASE or VKILL) {
       erase the approriate characters from the line;
       return;
     }
     insert c into the line buffer;
-    
     if (c is a line terminator) {
       append the line buffer to the input queue; 
       notify threads waiting on t_incv;
