@@ -680,7 +680,7 @@ implementation of condition variables provides three operations: \textit{wait},
 variable and a lock, and it atomically releases the lock and suspends execution
 of the thread invoking the operation. Thanks to its atomicity, when another
 thread subsequently acquires the same lock, the waiting thread is guaranteed to
-be suspended. This prevents events known as \textit{lost wakeups} from
+be suspended. This prevents events known as \textit{lost wake-ups} from
 occurring. The signal operation is used to wake up at most one thread waiting on
 a condition variable, while the broadcast operation wakes up all threads waiting
 on a condition variable. When a waiting thread is woken up, it automatically
@@ -1094,7 +1094,7 @@ situation for two reasons:
     is a need to acquire multiple process group locks.
   \item The \Verb{all_proc_mtx} lock is already held everywhere
     \Verb{_pgrp_enter()} is called. Therefore, virtually no code changes had to
-    be made in order to accomodate this rule.
+    be made in order to accommodate this rule.
 \end{itemize}
 
 At \ref{g4}, we are finally ready to make the switch. We remove the process from
@@ -1207,8 +1207,8 @@ typedef struct session {
 \label{lst:sess}
 \end{listing}
 
-The \Verb{s_hash} field is used to link the structure into the hashtable used to
-look up session strucutures by their session ID (SID).
+The \Verb{s_hash} field is used to link the structure into the hash table used to
+look up session structures by their session ID (SID).
 
 The \Verb{s_leader} field points to the process that is the session leader, i.e.
 the process that created the session by calling the \Verb{setsid()} function.
@@ -1265,20 +1265,20 @@ int session_enter(proc_t *p) {
 \label{lst:session-enter}
 \end{listing}
 
-First, we \ref{z1} acquire the \Verb{all_proc_mtx} lock, which is required to perform
+First, we~\ref{z1} acquire the \Verb{all_proc_mtx} lock, which is required to perform
 things such as process group lookups and creating new sessions and process
 groups.
 
-At \ref{z2}, we ensure that there doesn't already exist a process group with the
+At~\ref{z2}, we ensure that there doesn't already exist a process group with the
 same PGID as the PID of the calling process. The process group that is created as
 a result of creating a new session has a PGID equal to the PID of the calling
 process, and if a group with such a PGID already exists, we can't create the
 group we need, since PGIDs must be unique.
 
-Once we have ensured that we can create the group, we do so at \ref{z3}. Then,
-we \ref{z4} create a new session with \Verb{p} as the session leader and link it
+Once we have ensured that we can create the group, we do so at~\ref{z3}. Then,
+we~\ref{z4} create a new session with \Verb{p} as the session leader and link it
 to the newly created group (the session created by \Verb{session_create()} has a
-\Verb{s_count} of 1, so there's no need to adjust it). Finally, we \ref{z5}
+\Verb{s_count} of 1, so there's no need to adjust it). Finally, we~\ref{z5}
 change the process group of the calling process to the one we just created.
 
 \section{Job Control Signals}
@@ -1299,7 +1299,7 @@ An \textit{asynchronous signal} is sent independently of the actions of the
 receiving process, and may be received at any time. For example, whenever a
 process terminates, the system sends a \Verb{SIGCHLD} signal to its parent.
 
-Signals can be sent by the operating system in response to certain events (e.g.
+Signals can be sent by the operating system in response to certain events (e.g.\ 
 process termination), or by other processes, using the \Verb{kill()}
 function~\cite{kill}~\cite[Section~10.9]{apue}. A process can send a signal to
 itself using the \Verb{raise()} function. As a shorthand, we shall say that a
@@ -1334,7 +1334,7 @@ every signal can have its action modified: \Verb{SIGKILL} and \Verb{SIGSTOP}
 cannot have their actions changed from the default one, which is to terminate or
 stop the receiving process, respectively.
 
-The \textit{delivery} of a signal occurs when the target (i.e. receiving)
+The \textit{delivery} of a signal occurs when the target (i.e.\ receiving)
 process takes the action associated with the signal~\cite[Section~10.8]{apue}. A
 signal may be delivered long after it is initially sent, or it may not be
 delivered at all, even if it isn't ignored. This is because a process may
@@ -1367,7 +1367,7 @@ operating systems:
 \item \Verb{SIGQUIT}
 
   Similar to \Verb{SIGINT}, except it is sent in response to the \Verb{VQUIT}
-  character (usually~\Verb{^\}), and the default action additionally generates
+  character (usually~\Verb|^\|), and the default action additionally generates
   a core dump of the receiving process.
 
 \item \Verb{SIGTTOU}
@@ -1474,7 +1474,7 @@ transparently to the process that issued the system call.
 
 \subsubsection*{\Verb{proc_t::p_sigactions}}
 
-The \Verb{p_sigactions} field of the \Verb{proc_t} (i.e.
+The \Verb{p_sigactions} field of the \Verb{proc_t} (i.e.\ 
 process descriptor) structure is an array of structures of type
 \Verb{sigaction_t}. For each signal number \Verb{signo}, the
 disposition of that signal for the process is stored in
@@ -1553,34 +1553,34 @@ structure, which represents the process that the signal will be sent to. The
 second is a pointer to a \Verb{ksiginfo_t} structure, which describes the signal
 to be sent. Most importantly, it contains the signal number.
 
-The assertion at \ref{a1} ensures that the function's caller has acquired the
+The assertion at~\ref{a1} ensures that the function's caller has acquired the
 necessary lock. Processes' and threads' signal data structures are globally
-shared (i.e. many threads of execution can access them), so access to them must
+shared (i.e.\ many threads of execution can access them), so access to them must
 be synchronized using locks.
 
-We then \ref{a2} quickly filter out ignored signals, with an exception for
+We then~\ref{a2} quickly filter out ignored signals, with an exception for
 signals that can resume stopped processes, as these signals have an effect on
-the target process (i.e. continue it) even if they are ignored. Furthermore,
+the target process (i.e.\ continue it) even if they are ignored. Furthermore,
 terminal stop signals (\Verb{SIGTSTP}, \Verb{SIGTTOU} and \Verb{SIGTTIN}) cannot
 stop a process which is in an orphaned process group: this case is detected by
 the \Verb{sig_ignore_ttystop()} function.
 
-In \ref{a3}, we check whether the signal being sent is a stop or continue
+In~\ref{a3}, we check whether the signal being sent is a stop or continue
 signal. If it is, we remove all signals that are already pending which have the
-opposite effect. Additionally, for continue signals \ref{a4} we check whether
+opposite effect. Additionally, for continue signals~\ref{a4} we check whether
 the target process is stopped. If it is, we wake it up and notify its parent.
 
-Once control reaches \ref{a5}, we are certain that the signal isn't ignored, so
+Once control reaches~\ref{a5}, we are certain that the signal isn't ignored, so
 it should be queued for delivery to the target process. The \Verb{sigpend_put}
 function inserts the signal into the set of pending signals for the target
 process's thread.
 
 The final step is notifying the thread that it needs to process its pending
-signals. This step is skipped if \ref{a6} the signal is blocked from being
-delivered. The \ref{a7} \Verb{TDF_NEEDSIGCHK} flag lets the thread know that it
+signals. This step is skipped if~\ref{a6} the signal is blocked from being
+delivered. The~\ref{a7} \Verb{TDF_NEEDSIGCHK} flag lets the thread know that it
 should check for pending signals at the nearest opportunity. If the thread is
-\textit{sleeping interruptibly} (e.g. blocked inside a \Verb{read()} call on a
-terminal device, awaiting user input), it is \ref{a8} awakened so that it can
+\textit{sleeping interruptibly} (e.g.\ blocked inside a \Verb{read()} call on a
+terminal device, awaiting user input), it is~\ref{a8} awakened so that it can
 receive the signal. The need to release \Verb{td_lock} before calling
 \Verb{sleepq_abort()} is an unfortunate consequence of \textit{lock ordering},
 as the function acquires another spinlock before acquiring \Verb{td_lock}.
@@ -1591,7 +1591,7 @@ Section~\ref{chap:locking-rules} goes into more detail about lock ordering.
 
 After a signal is sent, it remains in the pending set, waiting to be delivered.
 Signals are delivered to a process whenever control is transferred from the
-kernel to that process, i.e. on transitions from the kernel to userspace. Every
+kernel to that process, i.e.\ on transitions from the kernel to userspace. Every
 time before returning to userspace, either from executing a system call, or
 handling an interrupt or exception that occurred while the CPU was executing
 userspace code, the \Verb{on_user_exc_leave()} function is called. This function
@@ -1633,16 +1633,16 @@ the first thing that is executed after returning control to the process.
 
 The first step is therefore to check for pending signals. The
 \Verb{TDF_NEEDSIGCHK} flag indicates that a signal is pending. It is set in
-\Verb{sig_kill()}, see Listing~\ref{lst:sig-kill}. We check the flag at \ref{q0}
+\Verb{sig_kill()}, see Listing~\ref{lst:sig-kill}. We check the flag at~\ref{q0}
 to avoid unnecessarily acquiring the process lock and checking the set of
-pending signals. If the flag is set, we \ref{q1} call \Verb{sig_check()}, which
+pending signals. If the flag is set, we~\ref{q1} call \Verb{sig_check()}, which
 returns the signal number of a signal that needs to be posted, or \Verb{0} if no
 signal needs posting. Note that signals with special effects (i.e.\ stopping or
 killing a process) are not posted, but are instead handled inside
 \Verb{sig_check()}, as part of checking for a pending signal. This is an
 implementation choice that simplifies handling of certain edge cases.
 
-Before posting pending signals, we \ref{q2} set the return value of the system
+Before posting pending signals, we~\ref{q2} set the return value of the system
 call we're returning from using \Verb{set_syscall_retval()} (provided we're
 returning from a system call at all). Note that \Verb{on_user_exc_leave()} is
 also called when returning to userspace from an interrupt, in which case
@@ -1651,9 +1651,9 @@ system call. The \Verb{set_syscall_retval()} function also restarts the system
 call if needed. More details about system call restarting are given in
 Section~\ref{chap:sleep-stop}.
 
-The last step is to post all pending signals. We \ref{q3} loop as long as there
+The last step is to post all pending signals. We~\ref{q3} loop as long as there
 is a signal that needs posting. Inside the loop, the currently selected signal
-is \ref{q4} posted and \ref{q5} another signal is selected. We will not describe
+is~\ref{q4} posted and~\ref{q5} another signal is selected. We will not describe
 how signals are posted, as most of the details are architecture-specific, and we
 are primarily concerned with job control signals, which are not posted at all
 (unless they have registered handlers, in which case they don't behave like job
@@ -1706,28 +1706,28 @@ int sig_check(thread_t *td, ksiginfo_t *out) {
 \end{listing}
 
 This function manipulates signal state, which is protected by the process's
-lock, hence the assertion at \ref{b0}.
+lock, hence the assertion at~\ref{b0}.
 
-The function first \ref{b1} extracts a pending signal that is not currently
+The function first~\ref{b1} extracts a pending signal that is not currently
 blocked using the \Verb{sig_pending()} function. It returns just a signal
-number, so in the next step \ref{b2} we remove the signal from the set of
+number, so in the next step~\ref{b2} we remove the signal from the set of
 pending signals.
 
-We then check \ref{b3} if the signal should stop the receiving process. Notice
+We then check~\ref{b3} if the signal should stop the receiving process. Notice
 that after the process is stopped using \Verb{proc_stop()} and subsequently
-resumed by another process, control goes back to \ref{b1}.
+resumed by another process, control goes back to~\ref{b1}.
 
-Next, we \ref{b4} handle signals that should kill the process. The
+Next, we~\ref{b4} handle signals that should kill the process. The
 \Verb{sig_exit()} function terminates the calling process and never returns.
 
-If the pending signal is neither a stop nor a kill signal, \ref{b5} the signal
+If the pending signal is neither a stop nor a kill signal,~\ref{b5} the signal
 number is returned. Additional information about the signal is passed to the
 caller via the \Verb{out} output parameter. The signal is then passed to
 \Verb{sig_post()} to arrange for the handler to be called.
 
-If no signal needs to be posted, the function \ref{b6} clears the thread's
+If no signal needs to be posted, the function~\ref{b6} clears the thread's
 \Verb{TDF_NEEDSIGCHK} flag, since there is no need to check for pending signals
-anymore. A return value of zero \ref{b7} indicates to the caller that no signal
+anymore. A return value of zero~\ref{b7} indicates to the caller that no signal
 needs to be posted.
 
 \subsubsection{Stopping and continuing processes}
@@ -1781,14 +1781,14 @@ void proc_stop(signo_t sig) {
 \label{lst:proc-stop}
 \end{listing}
 
-This function manipulates process state, hence the assertion at \ref{c1}. The
+This function manipulates process state, hence the assertion at~\ref{c1}. The
 next assertion simply makes sure that the process is in the expected state.
-Next, at \ref{c2} the process state is set to \Verb{PS_STOPPED}.
+Next, at~\ref{c2} the process state is set to \Verb{PS_STOPPED}.
 
-At \ref{c3}, we set up information that is used by the \Verb{wait4()} system
+At~\ref{c3}, we set up information that is used by the \Verb{wait4()} system
 call. It is used by a process to wait for one of its children to change state.
 As the reader might have already guessed, stopping counts as a state change. The
-call to \Verb{proc_wakeup_parent()} at \ref{c4} notifies the parent process of
+call to \Verb{proc_wakeup_parent()} at~\ref{c4} notifies the parent process of
 the status change. In the next line, a \Verb{SIGCHLD} signal is sent to the
 parent.
 
@@ -1807,13 +1807,13 @@ all. During this window of time, another process might continue the process we
 are trying to stop, in which case we should not stop the thread.
 
 The solution is to add the \Verb{TDF_STOPPING} thread flag, which signals that
-the thread is about to stop, but hasn't stopped yet. It is set \ref{c5} while
+the thread is about to stop, but hasn't stopped yet. It is set~\ref{c5} while
 still holding the process's lock. If the process is continued before the thread
 is stopped, the \Verb{TDF_STOPPING} flag is cleared. The stopping thread
-examines \ref{c6} the flag before changing its state. Thanks to this, the thread
+examines~\ref{c6} the flag before changing its state. Thanks to this, the thread
 will stop only if the process is still stopped.
 
-After setting the thread state to \Verb{TDS_STOPPED}, the call \ref{c7} to
+After setting the thread state to \Verb{TDS_STOPPED}, the call~\ref{c7} to
 \Verb{sched_switch()} hands over control to the scheduler, which will select
 another thread to run. The stopped thread will not be selected by the scheduler
 to run until it is continued.
@@ -1842,16 +1842,16 @@ void proc_continue(proc_t *p) {
 \label{lst:proc-continue}
 \end{listing}
 
-The assertion at \ref{d1} should come as no surprise at this point, as we are
+The assertion at~\ref{d1} should come as no surprise at this point, as we are
 modifying the process's state. The next assertion ensures that we only attempt
 to continue processes that are actually stopped.
 
-We then \ref{d2} restore the process's \Verb{p_state} to \Verb{PS_NORMAL}. Next,
-we \ref{d3} notify the parent of the state change. Note that, in contrast to
+We then~\ref{d2} restore the process's \Verb{p_state} to \Verb{PS_NORMAL}. Next,
+we~\ref{d3} notify the parent of the state change. Note that, in contrast to
 \Verb{proc_stop()}, we don't send a \Verb{SIGCHLD} signal to the parent process.
 This is in line with the POSIX specification.
 
-Lastly, we \ref{d4} wake up the thread of the process we are continuing. The
+Lastly, we~\ref{d4} wake up the thread of the process we are continuing. The
 \Verb{thread_continue()} function is very simple, and is presented in
 Listing~\ref{lst:thread-continue}.
 
@@ -1876,10 +1876,10 @@ also be stopped (i.e. \Verb{td_state == TDS_STOPPED}). The call to
 \Verb{proc_continue()} can occur at the time in \Verb{proc_stop()} where we are
 not holding any locks.
 
-For this reason, we first \ref{e1} check the \Verb{TDF_STOPPING} flag. If it is
+For this reason, we first~\ref{e1} check the \Verb{TDF_STOPPING} flag. If it is
 set, the thread has not stopped yet, and all we need to do is clear the flag.
 If the flag is not set, then we know that the thread is stopped, hence the
-assertion at \ref{e2}. We then \ref{e3} call \Verb{sched_wakeup()} to make the
+assertion at~\ref{e2}. We then~\ref{e3} call \Verb{sched_wakeup()} to make the
 thread runnable again.
 
 \chapter{The Terminal Subsystem}\label{chap:tty}
@@ -1924,7 +1924,7 @@ process to respond to it. The process would need to be prepared to receive such
 characters at any time. This is clearly an inconvenience, especially for simple
 programs.
 
-With the processing done by the operating system, the behavior is uniform and
+With the processing done by the operating system, the behaviour is uniform and
 requires less effort from writers of userspace programs. The interruption is
 delivered as a signal, for which a handler can be easily installed.
 
@@ -1966,13 +1966,13 @@ device, or it may be buffered by the OS in the terminal's \textit{output queue}
 and output asynchronously relative to the \Verb{write()} call. Buffering is a
 good idea in most cases, since the rate at which the terminal device is able to
 accept characters is usually far slower than the rate at which the CPU can
-supply those characters. Most operating systems systems choose the buffering
+supply those characters. Most operating systems choose the buffering
 approach, and the same choice has been made in the Mimiker kernel.
 
 Processes performing output are not the only source of characters for the
 terminal's output queue: if the \Verb{ECHO} terminal flag is set, characters
 arriving from the hardware device are automatically copied (i.e. ``echoed'') to
-the output queue. This is very useful, e.g. in the case of a shell, where the
+the output queue. This is very useful, e.g.\ in the case of a shell, where the
 user should see the command they are typing. The high-level flow of data between
 processes and terminal devices is shown in Figure~\ref{fig:term-hilevel}.
 
@@ -2064,7 +2064,7 @@ terminals and foreground process groups.
 \begin{figure}[h]
   \centering
   \includegraphics[width=\textwidth, keepaspectratio]{img/proc-hierarchy-tty}
-  \caption{Proces hierarchy from figure~\ref{fig:proc-hierarchy} with
+  \caption{Process hierarchy from figure~\ref{fig:proc-hierarchy} with
     controlling terminals and foreground process groups included. Note that
     sessions 1 and 2 do not have a controlling terminal. The terminal
     \Verb{/dev/uart} is the controlling terminal of session~3. Process group 6
@@ -2336,7 +2336,7 @@ typedef struct {
 The \Verb{t_notify_out} function notifies the driver that new data has appeared
 in the terminal structure's output queue (i.e. \Verb{t_outq}). The driver should
 ensure that data from the queue is written out to the terminal device as soon as
-possible. It is the only function implemented by both terminal drivers, i.e. the
+possible. It is the only function implemented by both terminal drivers, i.e.\ the
 UART and pseudoterminal drivers.
 
 The \Verb{t_notify_in} function notifies the driver that space has become
@@ -2383,7 +2383,7 @@ Once a terminal is created and visible in the filesystem, processes can open and
 perform I/O on it.
 
 The process of deleting a terminal begins when the terminal driver detects that
-the underlying device is no longer available (e.g. due to a modem disconnect).
+the underlying device is no longer available (e.g.\ due to a modem disconnect).
 The driver then \textit{detaches} itself from the in-kernel terminal structure.
 After that happens, processes are no longer able open or perform I/O on the
 terminal. Once the last open file descriptor referencing the terminal is closed,
@@ -2462,43 +2462,43 @@ the number of remaining bytes to be processed. Its design in the Mimiker kernel
 (see file \Verb{include/sys/uio.h}) was inspired by the \Verb{struct uio}
 structure found in kernels from the BSD family, see e.g. \cite{uio-man}.
 
-After acquiring the terminal's mutex, we first \ref{f1} check whether the driver
+After acquiring the terminal's mutex, we first~\ref{f1} check whether the driver
 has detached from this terminal. If it has, we cannot do any more I/O on it, so
 we return an error. 
 
 The next step is to check whether we are currently allowed to read from the
 terminal. As previously mentioned, processes in background process groups are
-usually not allowed to read from their controlling terminal. The
-\ref{f2} \Verb{tty_check_background()} function determines whether the calling process
-can perform I/O on the given terminal. The \Verb{SIGTTIN} argument specifies
-that we are trying to read from the terminal. If the function determines that we
-are not allowed to continue with the operation, it will return an error code. It
-may also send the specified signal (\Verb{SIGTTIN} in this case) to every
-process in the calling process's process group.
+usually not allowed to read from their controlling terminal.
+The~\ref{f2}~\Verb{tty_check_background()} function determines whether the
+calling process can perform I/O on the given terminal. The \Verb{SIGTTIN}
+argument specifies that we are trying to read from the terminal. If the function
+determines that we are not allowed to continue with the operation, it will
+return an error code. It may also send the specified signal (\Verb{SIGTTIN} in
+this case) to every process in the calling process's process group.
 
-Next, we \ref{f3} check whether the input queue contains any characters. The
+Next, we~\ref{f3} check whether the input queue contains any characters. The
 \Verb{read()} system call is blocking (at least by default), so if no data is
 available, the calling thread is put to sleep awaiting data. This is why, if the
-input queue is empty, we go on to \ref{f4} call \Verb{tty_wait()} to wait on the
+input queue is empty, we go on to~\ref{f4} call \Verb{tty_wait()} to wait on the
 \Verb{t_incv} condition variable. The role of the \Verb{tty_wait()} function
 will be explained at the end of this section.
 
 Once the \Verb{tty_wait()} function returns \Verb{0}, we must repeat the checks
-starting from \ref{f2}, since we may no longer be allowed to read from the
-terminal, e.g. because our process group was moved to the background. Repeating
-the check at \ref{f1} is not necessary, since \Verb{tty_wait()} does it for us.
+starting from~\ref{f2}, since we may no longer be allowed to read from the
+terminal, e.g.\ because our process group was moved to the background. Repeating
+the check at~\ref{f1} is not necessary, since \Verb{tty_wait()} does it for us.
 The loop continues until we find that there are characters in the input queue.
 
 After breaking out of the loop, we need to decide how to read the characters. In
 canonical mode, at most one line can be read in a single \Verb{read()} call. The
 \Verb{VEOF} character behaves like a line terminator, but it is special in that
-it doesn't get passed to userspace. This is why we check for it at \ref{f5},
+it doesn't get passed to userspace. This is why we check for it at~\ref{f5},
 before we copy the character read from the input queue to the user buffer. After
-copying the character, we \ref{f6} check whether we have filled the user buffer
-or \ref{f7} whether the character was an ordinary line terminator. In both
+copying the character, we~\ref{f6} check whether we have filled the user buffer
+or~\ref{f7} whether the character was an ordinary line terminator. In both
 cases, we break out of the read loop.
 
-In non-canonical mode, \ref{f8} exactly one character is read and returned to
+In non-canonical mode,~\ref{f8} exactly one character is read and returned to
 userspace. This behaviour is very different from that specified in POSIX (see
 \cite[Section~11.1.7]{terminal-spec}), where the semantics of \Verb{read()} in
 non-canonical mode depend on the values of the \Verb{VMIN} and \Verb{VTIME}
@@ -2506,7 +2506,7 @@ parameters stored in the \Verb{t_cc} array. The POSIX semantics are considerably
 more difficult to implement and provide little to no benefit, since no
 applications that have been ported to Mimiker actually use them.
 
-Finally, \ref{f9} the \Verb{tty_check_in_lowat()} function will notify the
+Finally,~\ref{f9} the \Verb{tty_check_in_lowat()} function will notify the
 driver if the input high watermark had been previously reached and the number of
 characters in the input queue has dropped below a certain threshold.
 
@@ -2537,7 +2537,7 @@ void tty_input(tty_t *tty, uint8_t c) {
   }
   if (ICANON flag is set) { /* Line editing */
     if (c is VERASE or VKILL) {
-      erase the approriate characters from the line;
+      erase the appropriate characters from the line;
       return;
     }
     insert c into the line buffer;
@@ -2588,7 +2588,7 @@ static int tty_wait(tty_t *tty, condvar_t *cv) {
 \label{lst:tty-wait}
 \end{listing}
 
-The function first \ref{p1} sleeps on the given condition variable. Note that it
+The function first~\ref{p1} sleeps on the given condition variable. Note that it
 passes \Verb{&tty->t_lock} as the second argument to \Verb{cv_wait_intr()}, so
 the lock on the \Verb{tty} terminal is released before going to sleep. After
 being woken up, the \Verb{cv_wait_intr()} function acquires the lock before
@@ -2596,17 +2596,17 @@ returning. However, note that almost anything could have happened to the
 terminal while we were sleeping, since we were not holding the terminal's
 \Verb{t_lock}. Most importantly, the associated driver might have detached from
 the terminal, in which case we must disallow any further I/O. Therefore,
-immediately after waking up we \ref{p2} check whether the driver has detached
+immediately after waking up we~\ref{p2} check whether the driver has detached
 and return an error code if it has.
 
 Instead of being woken up by another thread signalling the condition variable,
 it is also possible that we were woken up by receiving a signal that needs
 handling. In other words, our sleep was \textit{interrupted} (that's what the
-\Verb{intr} in \Verb{cv_wait_intr()} stands for --- \textit{interruptible}). At
-\ref{p3} we check whether our sleep was interrupted by a signal. If it was, we
-return \Verb{ERESTARTSYS}, which is a special return value that will cause the
-system call to be restarted if it turns out that no signal has been caught. This
-special return value is explained in more detail in
+\Verb{intr} in \Verb{cv_wait_intr()} stands for --- \textit{interruptible}).
+At~\ref{p3} we check whether our sleep was interrupted by a signal. If it was,
+we return \Verb{ERESTARTSYS}, which is a special return value that will cause
+the system call to be restarted if it turns out that no signal has been caught.
+This special return value is explained in more detail in
 Section~\ref{chap:sleep-stop}.
 
 \subsubsection{Terminal output}
@@ -2648,9 +2648,9 @@ static int tty_write(file_t *f, uio_t *uio) {
 \label{lst:tty-write}
 \end{listing}
 
-The function's primary role is to \ref{w1} check whether we are allowed to
+The function's primary role is to~\ref{w1} check whether we are allowed to
 perform the operation using \Verb{tty_check_background()} and to serialize calls
-to \Verb{tty_do_write()} by \ref{w2} waiting until the \Verb{TF_OUT_BUSY} flag
+to \Verb{tty_do_write()} by~\ref{w2} waiting until the \Verb{TF_OUT_BUSY} flag
 is cleared.
 
 The \Verb{tty_do_write()} function is responsible for putting each character in
@@ -2678,9 +2678,9 @@ static int tty_do_write(tty_t *tty, uio_t *uio) {
 \label{lst:tty-do-write}
 \end{listing}
 
-The function \ref{n1} reads consecutive characters from the buffer supplied by
-the process and \ref{n2} puts them into the output queue one at a time using
-\Verb{tty_output_sleep()}. At the end, it \ref{n3} notifies the terminal driver
+The function~\ref{n1} reads consecutive characters from the buffer supplied by
+the process and~\ref{n2} puts them into the output queue one at a time using
+\Verb{tty_output_sleep()}. At the end, it~\ref{n3} notifies the terminal driver
 of new data using \Verb{tty_notify_out()}.
 
 The \Verb{tty_output_sleep()} function puts a single character into the output
@@ -2707,17 +2707,17 @@ static int tty_output_sleep(tty_t *tty, uint8_t c) {
 \label{lst:tty-output-sleep}
 \end{listing}
 
-The function repeatedly \ref{o1} attempts to insert the character into the
+The function repeatedly~\ref{o1} attempts to insert the character into the
 output queue using \Verb{tty_output()}, which will return \Verb{false} if there
 is no space left in the queue. If that happens, we wait until the number of
 characters in the output queue drops below the \textit{output low watermark}.
-Before going to sleep, we \ref{o2} notify the terminal driver to make sure that
+Before going to sleep, we~\ref{o2} notify the terminal driver to make sure that
 it will eventually transfer some characters from the output queue, allowing us
-to proceed. The driver may transfer the characters \textit{synchronously}, i.e.
-directly in the \Verb{tty_notify_out()} function, which is why we must \ref{o3}
-check whether the low watermark has already been reached. If it hasn't, we
-\ref{o4} set the \Verb{TF_WAIT_OUT_LOWAT} flag to indicate that there is a
-thread waiting for space in the output queue, and finally we \ref{o5} go to
+to proceed. The driver may transfer the characters \textit{synchronously}, i.e.\
+directly in the \Verb{tty_notify_out()} function, which is why we must~\ref{o3}
+check whether the low watermark has already been reached. If it hasn't,
+we~\ref{o4} set the \Verb{TF_WAIT_OUT_LOWAT} flag to indicate that there is a
+thread waiting for space in the output queue, and finally we~\ref{o5} go to
 sleep on the \Verb{t_outcv} condition variable. The variable will be signalled
 by the driver after it makes enough space available in the output queue.
 
@@ -2750,8 +2750,8 @@ static bool tty_output(tty_t *tty, uint8_t c) {
 \caption{\href{https://mimiker.ii.uni.wroc.pl/source/xref/mimiker/sys/kern/tty.c?r=7a5a999c\#708}{\Verb{kern/tty.c}: simplified definition of \Verb{tty_output()}.}}
 \end{listing}
 
-If the \Verb{OPOST} flag isn't set, we skip all output processing and \ref{y1}
-write the character directly to the output queue. Otherwise, we \ref{y2} call
+If the \Verb{OPOST} flag isn't set, we skip all output processing and~\ref{y1}
+write the character directly to the output queue. Otherwise, we~\ref{y2} call
 \Verb{tty_process_out} to handle \Verb{OCRNL}, \Verb{ONLCR} and \Verb{ONOCR}
 terminal flags. During processing, a single character can be converted into two
 characters due to the \Verb{ONLCR} flag, which is why we use the \Verb{cb}
@@ -2761,7 +2761,7 @@ is not), then a single character could be converted into as many as eight
 characters, since if the flag is set, a tab character (\Verb{'\t'}) is converted
 into eight spaces.
 
-We then \ref{y3} attempt to write the processed characters to the output queue.
+We then~\ref{y3} attempt to write the processed characters to the output queue.
 The call to \Verb{tty_outq_write()} will return \Verb{false} if there isn't
 enough space in the output queue for the characters. If that's the case, we
 return \Verb{false} to indicate failure. 
@@ -2772,7 +2772,7 @@ the column number of the terminal cursor. Each character has a \textit{class},
 which determines how it impacts the column number. For instance, the
 \Verb{BACKSPACE} class (which contains only the backspace character \Verb{'\b'})
 decreases the column number by one, unless the column number is already zero.
-We therefore \ref{y4} loop over every character we have written to the output
+We therefore~\ref{y4} loop over every character we have written to the output
 queue and adjust the column number based on its class.
 
 Finally, we return \Verb{true} to indicate that we have successfully written the
@@ -2867,7 +2867,7 @@ receive buffer.
 
 A good question to ask at this point is: do we even need the worker thread?
 Couldn't we instead call \Verb{tty_input()} directly when receiving a character
-in the ISR and output characters to the UART directly (i.e. synchronously) in
+in the ISR and output characters to the UART directly (i.e.\ synchronously) in
 \Verb{t_notify_out}?
 
 The answer is yes, we do need the worker thread. Calling \Verb{tty_input()}
@@ -3024,27 +3024,27 @@ static void uart_tty_fill_txbuf(device_t *dev) {
 
 The function consists of a loop that moves characters from the \Verb{tty}
 terminal's output queue to the transmit buffer. However, before transferring any
-characters, we \ref{i1} try to bypass the transmit buffer entirely, transmitting
+characters, we~\ref{i1} try to bypass the transmit buffer entirely, transmitting
 characters directly from the output queue to the hardware. If we didn't try to
 bypass the transmit buffer, writing a single character to the terminal would
 always wake up the worker thread, which incurs extra overhead due to context
 switches. Such single-character writes are common, for example, when echoing
 characters typed by the user.
 
-The next step is to \ref{i2} check whether the transmit buffer is full or the
-output queue is empty. If neither condition is true, then we can \ref{i6}
-transfer a single character. Before that, we \ref{i5} update the
+The next step is to~\ref{i2} check whether the transmit buffer is full or the
+output queue is empty. If neither condition is true, then we can~\ref{i6}
+transfer a single character. Before that, we~\ref{i5} update the
 \Verb{TTY_THREAD_OUTQ_NONEMPTY} flag. We then return to the beginning of the
 loop.
 
-If either condition at \ref{i2} is true, we can no longer transfer any
-characters. In that case, if there are characters in the transmit buffer, we
-\ref{i3} tell the hardware to send an interrupt whenever it's ready to accept
+If either condition at~\ref{i2} is true, we can no longer transfer any
+characters. In that case, if there are characters in the transmit buffer,
+we~\ref{i3} tell the hardware to send an interrupt whenever it's ready to accept
 data. That way, the ISR will be called and it will move characters from the
-transmit buffer to the hardware. We then \ref{i5} update the
+transmit buffer to the hardware. We then~\ref{i5} update the
 \Verb{TTY_THREAD_OUTQ_NONEMPTY} flag before breaking out of the loop.
 
-The last step in the function is \ref{i7} calling \Verb{tty_getc_done()}. In the
+The last step in the function is~\ref{i7} calling \Verb{tty_getc_done()}. In the
 case of terminal drivers that output characters asynchronously, the driver is
 responsible for waking up threads waiting for space in the terminal's output
 queue. This is done by calling the \Verb{tty_getc_done()} function after moving
@@ -3089,17 +3089,17 @@ static void uart_tty_thread(void *arg) {
 \caption{\href{https://mimiker.ii.uni.wroc.pl/source/xref/mimiker/sys/kern/uart_tty.c?r=2609772a\#75}{\Verb{sys/kern/uart_tty.c}: definition of \Verb{uart_tty_thread()}.}}
 \end{listing}
 
-The first step in the loop is to \ref{j1} wait until the ISR gives us a signal
+The first step in the loop is to~\ref{j1} wait until the ISR gives us a signal
 to do some work by setting at least one of the flags contained in
 \Verb{TTY_THREAD_WORK_MASK}, i.e. \Verb{TTY_THREAD_RXRDY} or
 \Verb{TTY_THREAD_TXRDY}.
 
-Once we get a signal, we check what kind of work needs to be done. If
-the \Verb{TTY_THREAD_RXRDY} flag is set, we \ref{j2} read characters from the
-receive buffer and \ref{j3} pass them to the terminal layer using the
-\Verb{tty_input()} function. If the \Verb{TTY_THREAD_TXRDY} flag is set, we
-\ref{j4} move characters from the terminal's output queue to the transmit buffer
-using the \Verb{uart_tty_fill_txbuf()} function.
+Once we get a signal, we check what kind of work needs to be done. If the
+\Verb{TTY_THREAD_RXRDY} flag is set, we~\ref{j2} read characters from the
+receive buffer and~\ref{j3} pass them to the terminal layer using the
+\Verb{tty_input()} function. If the \Verb{TTY_THREAD_TXRDY} flag is set,
+we~\ref{j4} move characters from the terminal's output queue to the transmit
+buffer using the \Verb{uart_tty_fill_txbuf()} function.
 
 \subsubsection{The interrupt service routine}
 
@@ -3148,16 +3148,16 @@ intr_filter_t uart_intr(void *data) {
 \caption{\href{https://mimiker.ii.uni.wroc.pl/source/xref/mimiker/sys/drv/uart.c?r=2609772a\#18}{\Verb{sys/kern/uart.c}: definition of \Verb{uart_intr()}.}}
 \end{listing}
 
-If \ref{k1} a character has been received by the hardware, we \ref{k2} put it
-into the receive buffer and \ref{k3} signal the worker thread to pass the
+If~\ref{k1} a character has been received by the hardware, we~\ref{k2} put it
+into the receive buffer and~\ref{k3} signal the worker thread to pass the
 character to the terminal layer.
 
-If \ref{k4} the hardware is ready to accept a new character, we \ref{k5} try to
+If~\ref{k4} the hardware is ready to accept a new character, we~\ref{k5} try to
 transmit as many characters from the transmit buffer as possible, hence the
-while loop. After that, if \ref{k6} we have emptied the transmit buffer, we
-\ref{k8} signal the worker thread to move some characters into the transmit
-buffer, but only if \ref{k7} the terminal's output queue is not empty. If the
-transmit buffer is empty, we also \ref{k9} prevent the hardware from reporting
+while loop. After that, if~\ref{k6} we have emptied the transmit buffer,
+we~\ref{k8} signal the worker thread to move some characters into the transmit
+buffer, but only if~\ref{k7} the terminal's output queue is not empty. If the
+transmit buffer is empty, we also~\ref{k9} prevent the hardware from reporting
 TX ready interrupts, as we can't do anything about them until the worker thread
 puts some data in the transmit buffer. The \Verb{uart_tty_fill_txbuf()} function
 takes care of enabling the interrupt, see Listing~\ref{lst:uart-tty-fill-txbuf}.
@@ -3302,13 +3302,13 @@ function pointer to call the appropriate implementation. In the case of master
 device files, that function pointer points to \Verb{pty_read()}. Let us examine
 how it operates. Listing~\ref{lst:pty-read} presents the function's source code.
 
-The function first \ref{l1} loops until there is some data in the corresponding
-slave terminal's output queue. If \ref{l2} the slave terminal isn't opened by
-any processes, we return without reading anything. Otherwise, we \ref{l3} wait
+The function first~\ref{l1} loops until there is some data in the corresponding
+slave terminal's output queue. If~\ref{l2} the slave terminal isn't opened by
+any processes, we return without reading anything. Otherwise, we~\ref{l3} wait
 on the pseudoterminal's \Verb{pt_incv} condition variable. If our sleep got
 interrupted by a signal, we return an error code of \Verb{ERESTARTSYS}.
 
-The \Verb{pt_incv} condition variable is signaled when new data arrives in the
+The \Verb{pt_incv} condition variable is signalled when new data arrives in the
 slave terminal's output queue. Recall from Section~\ref{chap:mimiker-tty}
 that the \Verb{t_notify_out} function is called when new characters are added to
 the output queue. This function's implementation is supplied by the driver, so
@@ -3326,10 +3326,10 @@ static void pty_notify_out(tty_t *tty) {
 \end{listing}
 
 Once we get past the loop, we know that there is data available in the output
-queue, so we \ref{l4} read the data into the buffer supplied by the reading
+queue, so we~\ref{l4} read the data into the buffer supplied by the reading
 process. The interface of the terminal layer requires us to call
 \Verb{tty_getc_done()} after consuming characters from the output queue, so
-at \ref{l5} we do just that.
+at~\ref{l5} we do just that.
 
 \subsubsection{Master-side output}
 
@@ -3364,15 +3364,16 @@ static int pty_write(file_t *f, uio_t *uio) {
 \caption{\href{https://mimiker.ii.uni.wroc.pl/source/xref/mimiker/sys/kern/pty.c?r=60656d5d\#93}{\Verb{sys/kern/pty.c}: definition of \Verb{pty_write()}.}}
 \end{listing}
 
-The function \ref{m1} loops as long as there are character left to write in the
-buffer supplied by the calling process. Before reading the actual character,
-\ref{m2} the current status of the I/O operation is saved. We then \ref{m3} read
-the character to be written from the userspace buffer and \ref{m4} write it to
-the slave terminal's input queue using the \Verb{pty_putc_sleep()} function,
-which sleeps on the \Verb{pt_outcv} condition variable if there's no space in
-the input queue, and also returns an error if the slave terminal isn't opened by
-any processes. Once there's space in the input queue, the \Verb{t_notify_in}
-function pointer is invoked, which in our case points to \Verb{pty_notify_in}:
+The function~\ref{m1} loops as long as there are character left to write in the
+buffer supplied by the calling process. Before reading the actual
+character,~\ref{m2} the current status of the I/O operation is saved. We
+then~\ref{m3} read the character to be written from the userspace buffer
+and~\ref{m4} write it to the slave terminal's input queue using the
+\Verb{pty_putc_sleep()} function, which sleeps on the \Verb{pt_outcv} condition
+variable if there's no space in the input queue, and also returns an error if
+the slave terminal isn't opened by any processes. Once there's space in the
+input queue, the \Verb{t_notify_in} function pointer is invoked, which in our
+case points to \Verb{pty_notify_in}:
 \begin{listing}[H]
 \begin{minted}{c}
 static void pty_notify_in(tty_t *tty) {
@@ -3385,9 +3386,9 @@ static void pty_notify_in(tty_t *tty) {
 \end{listing}
 
 If the \Verb{pty_putc_sleep()} function fails, we must roll back the read of the
-character at \ref{m3}, since we failed to properly consume it. To do that, we
-\ref{m5} restore the previously saved state of the I/O operation. After rolling
-back, we break out of the loop and return with an error code.
+character at~\ref{m3}, since we failed to properly consume it. To do that,
+we~\ref{m5} restore the previously saved state of the I/O operation. After
+rolling back, we break out of the loop and return with an error code.
 
 \chapter{Implementation Challenges}\label{chap:impl-challenges}
 
@@ -3406,10 +3407,10 @@ when porting the \Verb{tetris} program.
 
 \section{Interruptible sleep and stop signals}\label{chap:sleep-stop}
 
-When a process performs certain I/O operations (e.g. reading from a terminal),
+When a process performs certain I/O operations (e.g.\ reading from a terminal),
 if the data isn't immediately available, the calling thread will \textit{sleep}
-(i.e. suspend execution in the kernel) awaiting the data. Two kinds of sleep are
-usually distinguished: \textit{interruptible} and
+(i.e.\ suspend execution in the kernel) awaiting the data. Two kinds of sleep
+are usually distinguished: \textit{interruptible} and
 \textit{uninterruptible}~\cite[Section~4.2,~Subsection~``The~Process~Structure'']{freebsd-book}.
 Interruptible sleep is used in case of I/O that may take an arbitrarily long
 time to complete, as is the case when reading from a terminal --- there is no
@@ -3540,7 +3541,7 @@ not been included:
 \item \Verb{ERESTART_RESTARTBLOCK}: like \Verb{ERESTARTSYS}, except when
   restarting, the interrupted system call is replaced with
   \Verb{restart_syscall()}\cite{restart-syscall}, which adjusts time-related
-  parameters (e.g. timeout duration in the case of \Verb{poll()}) before
+  parameters (e.g.\ timeout duration in the case of \Verb{poll()}) before
   restarting the original system call.
 \end{itemize}
 These error codes may be imported into Mimiker in the future, as more
@@ -3675,7 +3676,7 @@ by rules that order locks within a single class, as long as the ordering within
 each class remains free of cycles.
 
 During the integration of the terminal subsystem with other subsystems of the
-kernel (e.g. signal handling), the lock class of the per-terminal
+kernel (e.g.\ signal handling), the lock class of the per-terminal
 \Verb{t_lock}\footnote{The per-terminal \Verb{t_lock} mutex synchronizes
   accesses to all mutable members of the \Verb{tty_t} structure, see e.g.\
   Listing~\ref{lst:tty-do-write}.} embedded in the \Verb{tty_t} structure had to
@@ -3833,7 +3834,7 @@ terminal-related information, such as escape codes. To this end, the library
 makes use of a database of information about various specific terminal device
 models or terminal emulators. This database is often called the \Verb{terminfo}
 database. For instance, on the author's Linux system, the database is located at
-\Verb{/usr/lib/terminfo}. When a program using \Verb{libterminfo} wants to e.g.
+\Verb{/usr/lib/terminfo}. When a program using \Verb{libterminfo} wants to e.g.\ 
 clear the screen, it would call a library function to get the proper escape code
 for the specific terminal device being used. The \Verb{TERM} environment
 specifies the model of the terminal device being used.
@@ -3881,7 +3882,7 @@ a timeout mechanism.
 Suppose we want to read input from the terminal with a timeout of one second.
 First, we set up a handler for the \Verb{SIGALRM} signal that doesn't do
 anything. Next, we set a timer to expire one second in the future using the
-\Verb{setitmer()} function, and call the \Verb{read()} function to read input
+\Verb{setitimer()} function, and call the \Verb{read()} function to read input
 from the terminal. The \Verb{read()} function will sleep awaiting input if none
 is available. However, thanks to the timer, it will sleep for at most one
 second, since after one second a \Verb{SIGALRM} signal will interrupt the sleep.
@@ -4007,9 +4008,9 @@ as part of the overall implementation effort described in this thesis:
 \subsection*{Other contributions}
 When reading FreeBSD source code, the author found and reported three bugs in
 the FreeBSD kernel's terminal subsystem. The FreeBSD operating system is a
-widely used production-grade OS. The second bug can lead to a kernel panic (i.e.
-a system crash), while the last one allows any process with write access to a
-terminal to prevent all other processes in the system from writing to that
+widely used production-grade OS. The second bug can lead to a kernel panic
+(i.e.\ a system crash), while the last one allows any process with write access
+to a terminal to prevent all other processes in the system from writing to that
 terminal, regardless of their credentials.
 \begin{itemize}
 \item Bug 250701 - ``Race condition between \Verb{tty_wait_background()} and
@@ -4062,7 +4063,7 @@ specification, but are not used by most terminal-based applications. Many of
 them control various properties of the hardware terminal or handling of
 transmission errors. Implementing these may be necessary in order to handle real
 UART hardware, as opposed to emulated UARTs. Additionally, changing the
-\textit{baud rate} (i.e. transmission speed) using \Verb{cfsetispeed()} and
+\textit{baud rate} (i.e.\ transmission speed) using \Verb{cfsetispeed()} and
 \Verb{cfsetispeed()} functions is not implemented. Below is a summary of
 unimplemented terminal settings. The complete specification of terminal settings
 can be found in \cite{terminal-spec}.
@@ -4254,7 +4255,7 @@ play back the session exactly as it was recorded.
   group upon reception of the \Verb{^C} character (i.e. Control-C).
 \item To ensure that \Verb{^C} does what it's supposed to do, run the \Verb{cat}
   command without any arguments. The \Verb{cat} command reads characters from
-  standard input (i.e. the terminal), and writes them to standard output (which
+  standard input (i.e.\ the terminal), and writes them to standard output (which
   is also the terminal in this case). The reader can confirm this by typing a
   line of text and pressing the Enter key: the line will be output by the
   process. After typing \Verb{^C}, however, the process terminates.
