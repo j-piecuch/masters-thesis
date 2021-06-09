@@ -285,10 +285,14 @@ at all.
   kernel}\label{chap:locking-intro}
 
 An important aspect of kernel programming is proper synchronization of accesses
-to shared data structures. In the Mimiker kernel, this is accomplished using
-\textit{synchronization primitives}. The source code listings found throughout
-this thesis contain frequent references to these primitives, hence it is useful
-to have a basic understanding of their usage before reading the kernel's code.
+to shared data structures. Threads executing in the kernel (e.g.\ when
+performing a system call) share the same address space and can access shared
+kernel data structures. Therefore, synchronization is necessary inside the
+kernel to preserve the consistency of these structures. In the Mimiker kernel,
+this is accomplished using \textit{synchronization primitives}. The source code
+listings found throughout this thesis contain frequent references to these
+primitives, hence it is useful to have a basic understanding of their usage
+before reading the kernel's code.
 
 The primitives used in Mimiker include \textit{locks} (of which there are two
 types) and \textit{condition variables}. In this section, we first provide a
