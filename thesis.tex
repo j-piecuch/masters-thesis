@@ -1851,9 +1851,9 @@ we~\ref{d3} notify the parent of the state change. Note that, in contrast to
 \Verb{proc_stop()}, we don't send a \Verb{SIGCHLD} signal to the parent process.
 This is in line with the POSIX specification.
 
-Lastly, we~\ref{d4} wake up the thread of the process we are continuing. The
-\Verb{thread_continue()} function is very simple, and is presented in
-Listing~\ref{lst:thread-continue}.
+At the very end, we~\ref{d4} wake up the thread of the process we are
+continuing. The \Verb{thread_continue()} function is very simple, and
+is presented in Listing~\ref{lst:thread-continue}.
 
 \begin{listing}[H]
 \begin{minted}{c}
