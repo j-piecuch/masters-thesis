@@ -3856,7 +3856,7 @@ especially difficult. Below is a summary of the steps taken to port
   compatible with it.
 \end{itemize} 
 
-\subsection{Working around lack of \Verb{select()}/\Verb{poll()}}
+\subsection{Working around lack of \Verb{select()}/\Verb{poll()}}\label{chap:tetris-workaround}
 
 The biggest issue with porting \Verb{tetris} to Mimiker was how the game handles
 user input. Naturally, \Verb{tetris} is an interactive game, so whenever a
@@ -4166,7 +4166,9 @@ To run a shell inside Mimiker, run the following command in the shell
 inside the development environment:\\
 \Verb{./launch init=/bin/ksh}\\
 This should open a \Verb{tmux} session with the \Verb{ksh} shell running in the
-active window. We can now run various commands inside Mimiker.
+active window. We can now run various commands inside Mimiker. To close the
+session, change to the pane running QEMU by pressing Control-B followed by 1, and then
+press Control-C to terminate the QEMU process.
 
 \subsection*{Terminal commands}
 
@@ -4180,8 +4182,8 @@ in this section should be run in a shell inside Mimiker.
 \item List current terminal settings:\\
   \Verb{stty -a}\\
   The output contains \Verb{-tostop}, which indicates that the \Verb{TOSTOP}
-  flag is not set. This means that a process in a background process group
-  should be able to write to the terminal.
+  flag is not set. This means that background processes should be able to write
+  to the terminal.
 \item Check that both background and foreground processes can write to the
   terminal:\\
   \Verb{echo background & echo foreground}\\
@@ -4242,7 +4244,9 @@ play back the session exactly as it was recorded.
   will return to the foreground.
 \item Run the \Verb{jobs} command to display all jobs that the shell is aware
   of. It will display the \Verb{tetris} job and indicate its status (stopped).
-\item To resume the stopped \Verb{tetris} job, run the \Verb{fg} command.
+\item To resume the stopped \Verb{tetris} job, run the \Verb{fg} command.\\
+  Note: because of the workaround described in \ref{chap:tetris-workaround}, the
+  game will resume only after the user presses any key.
 \end{enumerate}
 
 \subsubsection*{Changing control characters using \Verb{stty}}
