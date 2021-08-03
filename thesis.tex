@@ -1328,8 +1328,8 @@ that can be taken in response to a signal:
 \item Ignore the signal.
 \item Invoke a \textit{signal handler routine}.
 
-  The handler routine is run in the context of the process that receiving
-  process. After the handler finishes execution, the process is resumed.
+  The handler routine is run in the context of the receiving process. After the
+  handler finishes execution, the process is resumed.
 \end{enumerate}
 
 The mapping of signal numbers to signal actions is controlled using the
@@ -1487,11 +1487,13 @@ disposition of that signal for the process is stored in
 \subsubsection*{\Verb{thread_t::td_sigmask}}
 
 As opposed to the signal disposition, which is shared by all the threads of a
-process, every thread has its own set of blocked signals. This set is stored in
-the \Verb{td_sigmask} field of the \Verb{thread_t} structure,
-which describes a single thread of execution. The field is just a bit vector,
-with each bit corresponding to a signal number. If a bit is set, signals with
-the corresponding number are blocked from being delivered.
+process, every thread has its own set of blocked signals\footnote{This fact is
+  relevant only on kernels which support processes with multiple threads. The
+  Mimiker currently supports only single-threaded processes. }. This set is
+stored in the \Verb{td_sigmask} field of the \Verb{thread_t} structure, which
+describes a single thread of execution. The field is just a bit vector, with
+each bit corresponding to a signal number. If a bit is set, signals with the
+corresponding number are blocked from being delivered.
 
 \subsubsection*{\Verb{thread_t::td_sigpend}}
 
@@ -2320,7 +2322,7 @@ The \Verb{t_serialize_cv} condition variable is used by processes calling
 
 \Verb{t_ops} is a structure containing implementations of terminal driver
 operations. There are currently four operations that a driver can supply, but
-only one is required:
+only \Verb{t_notify_out} is required:
 \begin{listing}[H]
 \begin{minted}{c}
 typedef void (*t_notify_out_t)(struct tty *);
@@ -3149,7 +3151,7 @@ intr_filter_t uart_intr(void *data) {
   }
 }
 \end{minted}
-\caption{\href{https://mimiker.ii.uni.wroc.pl/source/xref/mimiker/sys/drv/uart.c?r=2609772a\#18}{\Verb{sys/kern/uart.c}: definition of \Verb{uart_intr()}.}}
+\caption{\href{https://mimiker.ii.uni.wroc.pl/source/xref/mimiker/sys/drv/uart.c?r=2609772a\#18}{\Verb{sys/drv/uart.c}: definition of \Verb{uart_intr()}.}}
 \end{listing}
 
 If~\ref{k1} a character has been received by the hardware, we~\ref{k2} put it
